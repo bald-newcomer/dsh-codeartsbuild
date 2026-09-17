@@ -1,10 +1,10 @@
 # CodeArtsBuild 构建插件 — 架构设计文档
 
 > **文档编号**: CAB-ARCH-001  
-> **版本**: v0.7.0（契约同步 api-contract v0.4.3）  
+> **版本**: v0.7.4（local-build 分包上移）  
 > **日期**: 2026-09-17  
 > **状态**: 待评审  
-> **变更**: v0.6→v0.7 — 契约同步：核心域接口签名与工具摘要对齐（list_records→projectId、get_record/list_artifacts→buildNo、get_log 仅 recordId、get_status buildNo 必填）；KooCLI 操作映射更新（ShowJobBuildRecordDetail / ShowNewOutput / ListOfficialTemplate / DownloadBuildFullLog）；目录树补 repo-analyzer.ts；时序图去掉 list_projects；待确认项状态更新
+> **变更**: v0.7.3→v0.7.4 — local-build 由 infra/ 上移至 providers/（云端+本地双 Provider，待办 #9 评审结论）
 
 ## 修订记录
 
@@ -17,6 +17,10 @@
 | v0.5.0 | 2026-09-16 | **接口版本体系**：v3 旧版禁用、v1/v4 新接口优先；核心操作表/禁用清单/待确认项按 Path 实测对齐 |
 | v0.6.0 | 2026-09-16 | **专注 dsh**：移除 MCP 辅助形态；src 按模块分包（给出拆分依据）；projectId 运行时定义；代码仓分析/日志清洗细节迁移至 `repo-analyzer.md` / `log-cleaner.md` |
 | v0.7.0 | 2026-09-17 | **契约同步（api-contract v0.4.3）**：核心域接口签名与工具摘要对齐；KooCLI 操作映射更新（`ShowJobBuildRecordDetail` / `ShowNewOutput` / `ListOfficialTemplate` / `DownloadBuildFullLog`）；目录树补 `repo-analyzer.ts`；时序图去掉 `list_projects`；待确认项状态更新 |
+| v0.7.1 | 2026-09-17 | **wait_build 轮询参数补齐（待办 #4）**：WaitOpts 定义 intervalMs/timeoutMs/maxBackoffMs + 指数退避策略 + 超时返回 TIMEOUT（非异常） |
+| v0.7.2 | 2026-09-17 | **G2 修复闭环建模（待办 #6）**：§6.3 新增修复闭环时序（建议→修复→重试→再诊断，上限 3 轮），本地/云端双修复路径，超限升级用户 |
+| v0.7.3 | 2026-09-17 | **projectId 会话级传递（待办 #7）**：§4.3 新增会话上下文缓存机制（一次填写/自动复用/优先级链） |
+| v0.7.4 | 2026-09-17 | **local-build 分包上移（待办 #9）**：`local-build/` 由 infra/ 上移至 providers/（repo_build 为场景 B 核心能力，与云侧 Provider 对等） |
 
 ---
 
@@ -206,23 +210,22 @@ dsh-codeartsbuild/                      # dsh 插件（bundle），唯一终端�
 │   │   ├── provider.ts                 # BuildProvider 接口定义
 │   │   ├── types.ts                    # 共享类型（Project/Job/Record/Artifact/Log）
 │   │   └── lifecycle.ts                # 场景编排（调用链组合、wait_build 轮询）
-│   ├── providers/                      # Provider 实现层（可插拔）
-│   │   ├── codeartsbuild/              # CodeArtsBuild Provider
-│   │   │   ├── index.ts                # Provider 实现（场景 A~G）
+│   ├── providers/                      # Provider 实现层（可插拔）—— 云端 + 本地双 Provider
+│   │   ├── codeartsbuild/              # CodeArtsBuild Provider（场景 A/C/D/E/F/G 云侧）
+│   │   │   ├── index.ts                # Provider 实现（云侧场景）
 │   │   │   ├── client.ts               # 业务客户端（基于 KooCLI 调用）
 │   │   │   └── operation-map.ts        # 工具→KooCLI 操作映射（v1/v4 白名单）
+│   │   ├── local-build/                # 本地构建 Provider（场景 B，待办 #9 上移评审结论）
+│   │   │   ├── index.ts                # 聚合导出 repo_build
+│   │   │   ├── probe.ts                # 内部：仓库类型探测（fs 检测配置文件）
+│   │   │   ├── guidance.ts             # 内部：按仓库类型生成编译指导
+│   │   │   ├── build.ts                # 2.16 repo_build（child_process 执行 + 异常分类）
+│   │   │   ├── artifact.ts             # 内部：产物收集（glob 扫描）
+│   │   │   └── archive.ts              # 内部：过程留档（写 build-records/）
 │   │   └── index.ts                    # Provider 注册表（工厂）
-│   ├── infra/                          # 基础设施层
+│   ├── infra/                          # 基础设施层（跨 Provider 复用）
 │   │   ├── koo-cli.ts                  # KooCLI 适配器（命令执行与输出解析）
-│   │   ├── repo-analyzer.ts            # 代码仓分析器（详情见 repo-analyzer.md）
-│   │   ├── log-cleaner.ts              # 日志清洗器（详情见 log-cleaner.md）
-│   │   └── local-build/                # 本地构建域实现（不经 KooCLI）
-│   │       ├── index.ts                # 聚合导出 repo_build
-│   │       ├── probe.ts                # 内部：仓库类型探测（fs 检测配置文件）
-│   │       ├── guidance.ts             # 内部：按仓库类型生成编译指导
-│   │       ├── build.ts                # 2.16 repo_build（child_process 执行 + 异常分类）
-│   │       ├── artifact.ts             # 内部：产物收集（glob 扫描）
-│   │       └── archive.ts              # 内部：过程留档（写 build-records/）
+│   │   └── log-cleaner.ts              # 日志清洗器（详情见 log-cleaner.md）
 │   └── index.ts                        # 模块出口（聚合导出）
 │
 └── docs/
@@ -243,8 +246,8 @@ src 按**职责边界**分为 5 个包，拆分依据如下（供评审选择/�
 | `entry/` | 插件入口 | **dsh 装配边界**：`apply(ctx)` 是 dsh 加载的唯一入口，独立成包使入口最小化，避免入口依赖具体业务实现 |
 | `tools/` | 工具定义 | **契约边界**：工具名称/描述/schema 是面向 LLM 的契约，与实现解耦；schema 变更不影响 Provider，便于对照 `api-contract.md` 评审 |
 | `core/` | 核心业务域 | **抽象边界**：`BuildProvider` 接口与生命周期编排与具体后端无关，是"业务抽象优先"原则的落点 |
-| `providers/` | Provider 实现 | **扩展边界**：新增后端（Jenkins/GHA）只需新增一个子包实现 `BuildProvider`，不改动 core/tools/infra |
-| `infra/` | 基础设施 | **技术边界**：KooCLI 调用、文件扫描、日志处理是可复用基础设施，与业务场景解耦，独立便于替换（如 KooCLI 换 SDK） |
+| `providers/` | Provider 实现 | **扩展边界**：新增后端只需新增子包实现 `BuildProvider`；**云端 + 本地双 Provider**——`codeartsbuild/`（云侧 A/C/D/E/F/G）+ `local-build/`（本地构建 B，待办 #9 评审结论：repo_build 是场景 B 核心能力，非基础设施，上移至 providers 与云侧对等） |
+| `infra/` | 基础设施 | **技术边界**：KooCLI 适配、日志清洗等跨 Provider 复用基础设施，独立便于替换（如 KooCLI 换 SDK） |
 
 **备选拆分依据**（如评审倾向其他维度，可替换上述方案）：
 
@@ -278,7 +281,7 @@ src 按**职责边界**分为 5 个包，拆分依据如下（供评审选择/�
 }
 ```
 
-### 4.3 接入 dsh profile
+### 4.3 接入 dsh profile 与 projectId 会话级传递（待办 #7 补齐）
 
 用户 profile 中声明插件实例（`cordis.yml` / `dsh plugin add`）：
 
@@ -289,13 +292,30 @@ plugins:
     name: '@dsh-codearts/codeartsbuild'
     config:
       region: cn-north-4
-      # 不固定 projectId —— 由用户在运行时手动填写
+      # 不固定 projectId —— 会话级动态注入（见下）
 ```
 
-**projectId 运行时定义**：
-- 插件配置**不强制** `projectId`（`CODEARTS_BUILD_PROJECT_ID` 仅为可选默认值）
-- 典型流程：`projectId` 由用户手动填写 → 作为 `create_job` / `list_records` 入参；`list_projects` 仅作查看辅助
-- 好处：多项目用户无需改配置；LLM 可在会话中自由切换项目
+**projectId 会话级传递机制**：
+
+| 机制 | 规约 |
+|------|------|
+| **会话上下文** | 插件维护**会话级 projectId 状态**（dsh 会话内存，不落盘）；用户在会话中指定一次后，后续工具自动复用 |
+| **一次填写** | 用户/模型首次指定 projectId（显式入参或经 `list_projects` 选择）→ 存入会话上下文 |
+| **自动注入** | `create_job` / `list_records` 等需要 projectId 的工具：**入参缺省时自动从会话上下文取**；显式传入则覆盖并更新上下文 |
+| **校验** | 会话 projectId 非法（如被删除/无权限）时，工具报 `E_API`，LLM 提示用户重新选择（`list_projects`） |
+| **切换** | 用户指定新 projectId → 覆盖会话上下文；多项目会话内自由切换 |
+| **优先级** | 工具显式入参 > 会话上下文 > 配置默认值（`CODEARTS_BUILD_PROJECT_ID`）> `list_projects` 询问 |
+
+**projectId 数据流**：
+
+```
+用户指定 / list_projects 选择
+    → 会话上下文（projectId 缓存）
+        → create_job / list_records 自动复用（缺省时）
+        → 显式传参覆盖并刷新上下文
+```
+
+> **好处**：一次填写、全程复用，避免每次调用重复传参；与 AGENTS.md 核心主键表"project_id ← 用户填写"一致，但提升为会话级能力。实现层：dsh 插件 ctx 上挂 `sessionState.projectId`，工具 handler 读取。
 
 ### 4.5 核心域接口（Provider 抽象）
 
@@ -328,6 +348,15 @@ interface BuildProvider {
   // 场景 G: 故障诊断 —— 日志仅在 error 分析时通过 download 接口获取
   getBuildLog(recordId: string): Promise<BuildLog>;
   listBuildTemplates(): Promise<BuildTemplate[]>;
+}
+
+/** waitForBuild 轮询参数（待办 #4 补齐） */
+interface WaitOpts {
+  intervalMs?: number;        // 初始轮询间隔（默认 10s，范围 2000~120000）
+  timeoutMs?: number;         // 总超时阈值（默认 30min，范围 60000~7200000）
+  maxBackoffMs?: number;      // 退避上限（默认 30s）
+  // 轮询策略：指数退避 ×1.5 至 maxBackoffMs；超时返回 TIMEOUT（非异常）+ last_status；
+  // 单次网络失败重试 ≤2 次（间隔 2s）；终态集合见 api-contract §4.2
 }
 
 /** 产物模型：双链接 */
@@ -403,7 +432,7 @@ interface LogError {
 | 删除任务 | ⭐ `DeleteTheJob` | v1 | POST | **job_id**（path） |
 | 执行构建 | ⭐ `ExecuteJob` | v1 | POST | **job_id**, parameter.[N].{name,value}?, scm.{build_commit_id, build_tag}? |
 | 停止构建 | ⭐ `StopTheJob` | v1 | POST | **job_id**（path） |
-| 运行状态 | ⭐ `ShowJobStepStatus` | v1 | GET | **job_id**（path） |
+| 运行状态 | ⭐ `ShowJobStepStatus` ⚠️待定 | v1 | GET | **job_id**（path）；返回子步骤状态较难解析，替换接口待确认（契约 §8 #7） |
 | 是否在构建 | ⭐ `ShowRunningStatus` | v1 | GET | **job_id** |
 | 历史列表 | ⭐ `ListRecords` | v1 | GET | **build_project_id**, limit?, offset? |
 | 记录详情 | ⭐ `ShowJobBuildRecordDetail` | v1 | GET | **job_id**, **build_no** |
@@ -531,7 +560,37 @@ sequenceDiagram
     H-->>U: ❌ 构建失败<br/>根因: 第42行编译错误，缺少依赖 X<br/>建议: 在 pom.xml 添加该依赖<br/>详情: [日志页面链接]
 ```
 
-### 6.3 异常处理：KooCLI 未配置
+### 6.3 G2 修复闭环（待办 #6 补齐）
+
+失败诊断后进入**修复闭环**，上限 3 轮，超过则升级用户：
+
+```mermaid
+flowchart TD
+    A[G2 诊断: 得到根因与修复建议] --> B[模型实施修复]
+    B --> C{修复后重跑?}
+    C -- 本地修复（改代码/依赖） --> D[repo_build 重跑]
+    C -- 云端修复（改任务配置） --> E[update_job 更新配置 → run_job 重跑]
+    D --> F{重跑结果?}
+    E --> F
+    F -- SUCCESS --> G[✅ 修复闭环完成, 留档]
+    F -- FAILED --> H{轮次 < 3?}
+    H -- 是 --> I[再诊断 get_log → 新根因]
+    I --> B
+    H -- 否 --> J[升级用户: 已 3 轮修复未果 + 各轮根因/尝试记录]
+```
+
+**修复闭环规约**：
+
+| 项 | 规约 |
+|----|------|
+| **上限** | 3 轮（每轮 = 1 次诊断 + 1 次修复 + 1 次重跑） |
+| **本地 vs 云端修复** | 代码/依赖问题 → `repo_build` 本地重跑；任务配置问题 → `update_job` + `run_job` 云端重跑 |
+| **再诊断** | 每轮重跑失败后重新 `get_log` 诊断（根因可能变化），不得沿用上轮结论 |
+| **升级条件** | 3 轮未果、或某轮根因超出 AI 能力（需账号/业务确认）→ 立即升级用户 |
+| **留档** | 每轮修复动作与结果写入构建留档（repo_archive 机制），升级时附完整尝试记录 |
+| **与工作流三协同** | 修复闭环是工作流三（交互升级）的前置——闭环内模型自决，超出即升级 |
+
+### 6.4 异常处理：KooCLI 未配置
 
 ```
 插件加载/首次调用 → 检查 KooCLI 可用性
