@@ -228,26 +228,23 @@ dsh-codeartsbuild/                      # dsh 插件（bundle），唯一终端�
 │   │   └── log-cleaner.ts              # 日志清洗器（详情见 log-cleaner.md）
 │   └── index.ts                        # 模块出口（聚合导出）
 │
-└── docs/                                # 软件工程六层文档体系
-    ├── requirements/                    # 需求层
-    │   └── prd.md                       # 需求说明
+└── docs/                                # 软件工程文档体系
+    ├── README.md                        # 文档索引
+    ├── prd.md                           # 需求说明
+    ├── changelog.md                     # 变更记录
     ├── architecture/                    # 架构设计层
     │   └── architecture.md              # 本文件
     ├── design/                          # 概要/详细设计层
     │   ├── repo-analyzer.md             # 代码仓构建流程（概要）
     │   └── log-cleaner.md               # 日志清洗器（详细）
     ├── api/                             # 接口契约层
-    │   ├── api-contract.md              # 工具接口契约
-    │   └── koocli-codeartsbuild-ops.txt # KooCLI 操作列表归档
+    │   └── api-contract.md              # 工具接口契约
     ├── operations/                      # 运维/用户文档层
     │   ├── usage.md                     # 使用指南
     │   ├── errors.md                    # 错误码排查
     │   ├── auth.md                      # KooCLI 认证说明
     │   ├── artifacts.md                 # 产物规范
     │   └── risk-compliance.md           # 风险合规
-    ├── management/                      # 项目管理层
-    │   ├── changelog.md                 # 变更记录
-    │   └── README.md                    # 文档索引（原 docs/README.md 迁入）
     └── example/                         # 真实样本（不入库）
 ```
 
@@ -461,11 +458,9 @@ interface LogError {
 
 > ⚠️ **接口禁用规则（评审决策）**：CodeArtsBuild **v3 为旧版接口（禁用）**，**v1/v4 为新接口（优先使用）**。判定依据为 KooCLI 服务定义中的 `Request.Path`（如 `ExecuteJob`→`/v1/job/execute`、`RunJob`→`/v3/jobs/build`）。完整禁用清单与推荐白名单见 `docs/api/api-contract.md` §1.4。
 
-### 4.9 CodeArtsBuild 完整操作列表（实测归档）
+### 4.9 CodeArtsBuild 完整操作列表（实测分类）
 
-**完整操作列表已归档**：`docs/api/koocli-codeartsbuild-ops.txt`（2026-09-16，KooCLI v7.2.12 实测，136 行 / 约 130 个操作，已去除 ANSI 颜色码）。
-
-操作清单按功能域分类：
+2026-09-16 KooCLI v7.2.12 实测（约 130 个操作），按功能域分类：
 
 | 功能域 | 操作 |
 |--------|------|
@@ -478,8 +473,7 @@ interface LogError {
 | **参数/密钥** | `ListBuildParameter`、`ShowBuildParamsList`、`ShowDefaultBuildParameters`、`ShowJobSystemParameters`、`UploadKeystore`、`DownloadKeystore`、`DownloadKeystoreByName`、`ListKeystore`、`ListKeystoreSearch`、`UpdateKeystore`、`DeleteKeystore`、`AddKeystorePermission`、`UpdateKeystorePermission`、`DeleteKeystorePermission`、`ShowKeystorePermission` |
 | **通知/权限/其他** | `ShowJobNoticeConfigInfo`、`ListNotice`、`UpdateNotice`、`UpdateNewNoticeNew`、`DisableNotice`、`ShowJobRolePermission`、`ShowJobPipelineInfo`、`ShowDomainStatus`、`ShowDomainsStatuses`、`ShowUserChargeType`、`ShowUserOverPackageQuota`、`CheckJobNameIsExists`、`CheckJobInternal`、`CheckJobCountIsTopLimit`、`CheckWebhookUrl`、`ClearRecyclingJobs`、`ListRecyclingJob`、`RestoreRecyclingJobs`、`DeleteRecyclingJobs`、`SetKeepTime`、`ShowActionIInfo`、`ShowAvailableInnerSpec`、`ShowReportSummary`、`ShowSummaryBuildJobInfo`、`ShowPackageSpecCountDown`、`ListEndPoints`、`ListGroupTree`、`CreateJobGroup`、`UpdateJobGroup`、`DeleteGroup`、`MoveGroup`、`BatchUpdateJobRolePermission`、`ListJunitCoverageSummary`、`DownloadJunitCoverageZip`、`ShowDisable`、`DisableBuildJob`、`EnableBuildJob`、`DisableTheJob`、`SwitchedPacket`、`ListUpdateJobHistory`、`ListRepository`、`ListRepoBranch` |
 
-> 该文件是 KooCLI 实测原始归档，后续如需更新（KooCLI 升级后），重跑：
-> `hcloud CodeArtsBuild --help | sed 's/\x1b\[[0-9;]*m//g' > docs/api/koocli-codeartsbuild-ops.txt`
+> 完整操作名列表可由 `hcloud CodeArtsBuild --help` 实时获取。
 
 ---
 
