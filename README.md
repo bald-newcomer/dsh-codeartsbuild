@@ -40,13 +40,14 @@ dsh-codeartsbuild/
 ├── skills/
 │   └── codeartsbuild/
 │       └── SKILL.md                 # Skill 定义（工具清单、强制规约、建议操作路径）
-├── docs/                            # 软件工程六层文档体系（见 docs/management/README.md）
-│   ├── requirements/                #   需求层
+├── docs/                            # 软件工程文档体系（索引见 docs/README.md）
+│   ├── README.md                    #   文档索引
+│   ├── prd.md                       #   需求说明
+│   ├── changelog.md                 #   变更记录
 │   ├── architecture/                #   架构设计层
 │   ├── design/                      #   概要/详细设计层
 │   ├── api/                         #   接口契约层
-│   ├── operations/                  #   运维/用户文档层
-│   └── management/                  #   项目管理层（索引/变更记录）
+│   └── operations/                  #   运维/用户文档层
 ├── src/                             # 插件实现
 ├── package.json
 └── tsconfig.json
@@ -63,11 +64,10 @@ dsh-codeartsbuild/
 | 日志清洗器规范 | `docs/design/log-cleaner.md` | ✅ v0.2 | 基于真实日志重设计：job_key/资源池/步骤/错误码 |
 | 使用指南 | `docs/operations/usage.md` | ✅ v0.1 | 安装、配置、典型流程示例 |
 | 错误码与故障排查 | `docs/operations/errors.md` | ✅ v0.1 | 错误码表、日志清洗分类、故障排查 |
-| 需求说明（PRD） | `docs/requirements/prd.md` | ✅ v0.1 | 用户故事、功能范围、非功能需求 |
+| 需求说明（PRD） | `docs/prd.md` | ✅ v0.1 | 用户故事、功能范围、非功能需求 |
 | 产物规范 | `docs/operations/artifacts.md` | ✅ v0.1 | 产物双链接、类型、下载规范 |
 | 风险与合规 | `docs/operations/risk-compliance.md` | ✅ v0.1 | 安全设计、权限最小化、审计 |
-| 变更记录 | `docs/management/changelog.md` | ✅ v0.1 | 版本演进、变更历史汇总 |
-| KooCLI 操作列表 | `docs/api/koocli-codeartsbuild-ops.txt` | ✅ 已实测 | v7.2.12 完整操作列表（约 130 个操作） |
+| 变更记录 | `docs/changelog.md` | ✅ v0.1 | 版本演进、变更历史汇总 |
 | Skill 定义 | `skills/codeartsbuild/SKILL.md` | ✅ v0.4.3 | 工具清单、强制规约（数据来源映射）、建议操作路径 |
 
 ## 参考
