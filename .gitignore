@@ -4,3 +4,7 @@ dist/
 .env
 .env.local
 .DS_Store
+.idea/
+.opencode/
+docs/临时记录.md
+docs/example/
