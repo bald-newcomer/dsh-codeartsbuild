@@ -73,3 +73,5 @@ graph LR
 | 8 | 架构缺口：`get_status` 替换接口 —— 架构 §4.8 已加"待定"标注（与契约 §8 #7 对齐）；**替换决策待人工确认**（候选 `ShowRunningStatus`/`ShowJobBuildRecordDetail`），确认后同步更新 | ⏳ 待人工决策 |
 | 9 | ~~架构缺口：local-build 分包定位~~（评审结论：repo_build 为场景 B 核心能力，已上移至 `providers/local-build/`，与云侧 Provider 对等） | ✅ 完成 |
 | 10 | **架构缺口（P3，M2+）**：list_* 缓存策略、多会话并发隔离（run_job/wait_build/stop_job）、契约一致性测试（实现 vs api-contract）、KooCLI 版本兼容、配置优先级（env vs cordis config） | ⏳ 待办 |
+| 11 | **各 tool 详细设计**：对 16 个工具逐一详细设计（输入/输出/错误/边界）；简单接口从简，`create_job`（创建任务）需**较为详尽的设计**（参数组装、模板化、推荐步骤映射、校验规则） | ⏳ 待办 |
+| 12 | **流程优化**：`run_job`（或 wait_build 轮询）使用**子进程（child_process）**承载任务状态 loop，避免阻塞主进程；需评估子进程管理（超时/终止/回收） | ⏳ 待办 |
