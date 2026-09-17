@@ -6,7 +6,7 @@ dist/
 .DS_Store
 .idea/
 .opencode/
-docs/临时记录.md
+docs/临时*.md
 docs/example/
 
 # codegraph index cache
