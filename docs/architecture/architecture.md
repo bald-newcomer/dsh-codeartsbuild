@@ -1,10 +1,10 @@
 # CodeArtsBuild 构建插件 — 架构设计文档
 
 > **文档编号**: CAB-ARCH-001  
-> **版本**: v0.7.4（local-build 分包上移）  
+> **版本**: v0.7.5（产物统一结构体）  
 > **日期**: 2026-09-17  
 > **状态**: 待评审  
-> **变更**: v0.7.3→v0.7.4 — local-build 由 infra/ 上移至 providers/（云端+本地双 Provider，待办 #9 评审结论）
+> **变更**: v0.7.4→v0.7.5 — 产物模型统一结构体（type 按介质 obs/image/artifact/local + record_id + language）；移除 download_url（需 token），当前仅 console_url 跳转查看，下载 M2 规划
 
 ## 修订记录
 
@@ -21,6 +21,7 @@
 | v0.7.2 | 2026-09-17 | **G2 修复闭环建模（待办 #6）**：§6.3 新增修复闭环时序（建议→修复→重试→再诊断，上限 3 轮），本地/云端双修复路径，超限升级用户 |
 | v0.7.3 | 2026-09-17 | **projectId 会话级传递（待办 #7）**：§4.3 新增会话上下文缓存机制（一次填写/自动复用/优先级链） |
 | v0.7.4 | 2026-09-17 | **local-build 分包上移（待办 #9）**：`local-build/` 由 infra/ 上移至 providers/（repo_build 为场景 B 核心能力，与云侧 Provider 对等） |
+| v0.7.5 | 2026-09-17 | **产物统一结构体**：BuildArtifact 重构（type 按介质 + record_id + language）；移除 download_url，当前仅 console_url 跳转查看 |
 
 ---
 
@@ -42,7 +43,7 @@ Huawei Cloud **CodeArts Build（编译构建）** 是云上编译构建平台，
 |------|------|----------|
 | G1 | 自动创建并执行构建 | 基于给定的项目，自动分析当前代码仓技术栈，创建构建任务并**执行成功** |
 | G2 | 异常自动诊断 | 构建失败时自动**拉取日志**，清洗建模后交 LLM **分析根因**，给出可操作建议 |
-| G3 | 获取构建产物 | 列出产物清单，提供**下载链接**与**页面查询链接** |
+| G3 | 获取构建产物 | 列出产物清单（按介质分类），提供**页面跳转链接**（当前版本不提供下载） |
 | G4 | 构建状态监控 | 轮询等待构建进入终态 |
 | G5 | 业务抽象 | 抽象构建生命周期核心域，以 **DeepSeek Harness 插件**（bundle）承载，专注 dsh 生态 |
 
@@ -83,7 +84,7 @@ Huawei Cloud **CodeArts Build（编译构建）** 是云上编译构建平台，
 | US-8 | 开发者 | 作为开发者，我希望停止误触发的构建 | P1 |
 | US-9 | 开发者 | 作为开发者，我希望查询构建状态并等待其完成 | P0 |
 | US-10 | 开发者 | 作为开发者，我希望查看构建历史记录 | P1 |
-| US-11 | 开发者 | 作为开发者，我希望获取构建产物的清单、下载链接与页面查询链接 | P0 |
+| US-11 | 开发者 | 作为开发者，我希望获取构建产物清单（按介质分类）与页面跳转链接 | P0 |
 | US-12 | 开发者 | 作为开发者，我希望看到可用的构建步骤模板 | P1 |
 | US-13 | 开发者 | **作为开发者，构建失败时我希望自动获取日志并分析失败原因** | P0 |
 | US-14 | 开发者 | 作为开发者，我希望自动检测当前代码仓的技术栈（Maven/Npm/Gradle 等） | P0 |
@@ -99,7 +100,7 @@ Huawei Cloud **CodeArts Build（编译构建）** 是云上编译构建平台，
 ├── 场景 C: 任务编排       — 创建/更新/删除构建任务
 ├── 场景 D: 执行控制       — 触发/停止/轮询
 ├── 场景 E: 状态监控       — 状态查询、历史记录
-├── 场景 F: 产物管理       — 产物清单、下载
+├── 场景 F: 产物管理       — 产物清单（按介质）、页面跳转查看
 └── 场景 G: 故障诊断       — 日志拉取、清洗建模、AI 分析
 ```
 
@@ -353,7 +354,7 @@ interface BuildProvider {
   getBuildHistoryDetail(jobId: string, buildNumber: number): Promise<BuildHistoryDetail>;  // 返回含 build_record_id（record_id 唯一来源）
   waitForBuild(jobId: string, buildNumber: number, opts?: WaitOpts): Promise<BuildStatusInfo>;
 
-  // 场景 F: 产物管理 —— 每个产物同时给出下载链接与页面查询链接
+  // 场景 F: 产物管理 —— 统一结构体（介质类型 + console_url，当前版本不提供下载）
   listBuildArtifacts(jobId: string, buildNumber: number): Promise<BuildArtifact[]>;
 
   // 场景 G: 故障诊断 —— 日志仅在 error 分析时通过 download 接口获取
@@ -370,15 +371,16 @@ interface WaitOpts {
   // 单次网络失败重试 ≤2 次（间隔 2s）；终态集合见 api-contract §4.2
 }
 
-/** 产物模型：双链接 */
+/** 产物模型：统一结构体（介质类型，见 operations/artifacts.md） */
 interface BuildArtifact {
   name: string;
-  type?: string;
-  size?: number;
-  downloadUrl: string;        // 直接下载链接（API 返回，带鉴权）
-  consoleUrl: string;         // 页面查询链接（控制台 Web 页面，可分享/浏览器打开）
-  uri?: string;               // 制品仓库 URI
-  version?: string;           // 产物版本
+  type: 'obs' | 'image' | 'artifact' | 'local';  // 介质类型（按存储介质区分）
+  language?: string;         // 语言类型（Java/Go/JavaScript/Python 等）
+  recordId?: string;         // 关联构建记录 ID（get_record 的 build_record_id 或本地留档 ID）
+  size?: number;             // 大小（字节）
+  uri?: string;              // 产物定位（制品仓库 URI / OBS URI / 本地相对路径）
+  consoleUrl?: string;       // 页面跳转链接（控制台，当前版本唯一提供的查看方式）
+  // 注：当前版本不提供下载（download_url 需 token），仅 console_url 跳转查看；大文件下载 M2 规划
 }
 
 /** 日志结构化模型 */
@@ -494,7 +496,7 @@ interface LogError {
 | 9 | `codeartsbuild_get_status` | **jobId**, **buildNo** | 状态信息 |
 | 10 | `codeartsbuild_list_records` | **projectId**, limit?, offset? | 历史记录 |
 | 11 | `codeartsbuild_get_record` | **jobId**, **buildNo** | 记录详情（含 `record_id`，失败定位） |
-| 12 | `codeartsbuild_list_artifacts` | **jobId**, **buildNo** | 产物清单（**下载链接 + 页面查询链接**） |
+| 12 | `codeartsbuild_list_artifacts` | **jobId**, **buildNo** | 产物清单（按介质分类，**页面跳转链接**） |
 | 13 | `codeartsbuild_list_templates` | — | 模板列表 |
 | 14 | `codeartsbuild_wait_build` | **jobId**, **buildNumber** | 终态结果 |
 | 15 | `codeartsbuild_get_log` | **recordId** | **清洗后结构化日志（仅 error 分析时调用）** |
@@ -736,7 +738,7 @@ dsh web
 | 阶段 | 内容 |
 |------|------|
 | M1（本期） | CodeArtsBuild Provider + dsh 插件（专注 dsh）+ 代码仓分析 + 日志清洗 |
-| M2 | 产物自动下载到本地；构建日志全文拉取优化（分片下载） |
+| M2 | 产物下载到本地（带 token 鉴权，分片/断点续传）；构建日志全文拉取优化 |
 | M3 | dsh 插件发布到 npm/registry；多 profile 配置优化 |
 | M4 | 其他 Provider（Jenkins / GitHub Actions）；流水线集成 |
 
@@ -750,6 +752,6 @@ dsh web
 4. ✅ **默认项目 ID（已决策）**：**projectId 运行时定义**——不固定，由用户手动填写（`list_projects` 仅作查看辅助）；`CODEARTS_BUILD_PROJECT_ID` 仅为可选默认值（见 §4.3）。
 5. **dsh 插件发布渠道**：发布到 npm registry 供 `dsh plugin add` 安装，还是私有 registry / 本地路径？M1 可先本地路径调试。
 6. ✅ **日志 download 接口（已确认）**：`get_log` 使用 `DownloadBuildFullLog`(v1, record_id)（评审决策 2026-09-17）；实时日志 `DownloadBuildRealTimeLog`(v1, job_id+build_no)。
-7. **KooCLI 产物下载**：`list_artifacts` 选型为 `ShowNewOutput`(v1，KooCLI 未封装需手动 HTTP 调用) 返回产物信息（含下载地址），产物下载是否走带鉴权 URL 直接下载还是另需 KooCLI 封装？
+7. ✅ **产物下载（已决策）**：**当前版本不提供下载**（`download_url` 需 token），`list_artifacts`（`ShowNewOutput` v1，KooCLI 未封装需手动调用）仅返回 `console_url` 页面跳转链接；大文件下载 M2 规划（见 operations/artifacts.md §5）。
 8. ✅ **`record_id` 获取路径（已确认）**：`get_record`（`ShowJobBuildRecordDetail` v1）实测返回 `build_record_id`/`execution_id`/`devcloud_project_id`；`get_log` 以 `build_record_id` 作为 recordId 调 `DownloadBuildFullLog`(v1)。
 9. **v1 接口参数实测**：`ListRecords`(build_project_id)、`ShowJobBuildSuccessRatio`、`ShowJobConfig`、`DeleteTheJob`/`StopTheJob` 等 v1 接口的实际参数需实调用确认（契约 §8 待确认项 #5/#6）。

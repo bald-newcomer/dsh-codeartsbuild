@@ -1,10 +1,10 @@
 # CodeArtsBuild 插件 — 工具接口契约
 
 > **文档编号**: CAB-CONTRACT-001  
-> **版本**: v0.4.5（repo_build→create_job 映射）  
+> **版本**: v0.4.6（产物统一结构体）  
 > **日期**: 2026-09-17  
 > **状态**: 待人工评审确认  
-> **前置依赖**: 架构设计 v0.7.1（`docs/architecture/architecture.md`）  
+> **前置依赖**: 架构设计 v0.7.4（`docs/architecture/architecture.md`）  
 
 ## 修订记录
 
@@ -20,6 +20,7 @@
 | v0.4.3 | 2026-09-17 | **人工评审补充说明与接口调整**：各工具新增 `description` 字段（§2）；`get_record`→`ShowJobBuildRecordDetail`（v1）、`list_artifacts`→`ShowNewOutput`（v1 `/v1/job/{job_id}/{build_no}/output`，**KooCLI 未封装，需手动调用**）、`list_templates`→`ListOfficialTemplate`（v1）、`get_log`→`DownloadBuildFullLog`（v1）；`stop_job`/`get_status` 补充 buildNo；`list_projects`/`get_record` 更新为实测响应示例 |
 | v0.4.4 | 2026-09-17 | **wait_build 轮询参数补齐（待办 #4）**：§2.14 新增轮询策略（指数退避 ×1.5 / maxBackoffMs 上限 30s / 总超时 30min-2h）、超时后行为（返回 `TIMEOUT` 非异常 + last_status）、网络抖动重试 ≤2 次 |
 | v0.4.5 | 2026-09-17 | **repo_build→create_job 映射契约（待办 #5）**：§2.16 输出新增 `recommended_steps`（与 create_job.steps 同构），定义 repo_type→module_id 默认映射与直接可用规约 |
+| v0.4.6 | 2026-09-17 | **产物统一结构体**：§2.12 新增规范化产物输出（type 按介质 obs/image/artifact + record_id + language + console_url）；下载策略——当前不提供下载（download_url 需 token），仅 console_url 跳转查看 |
 
 ---
 
@@ -687,6 +688,28 @@ v4: ShowRecordDetail, DownloadBuildLog
 
 > `package_info` / `image_info` / `obs_info` 的实际字段名与结构以 `ShowNewOutput` 实调用响应为准（架构 §12 待确认 #2）；接口未封装于 KooCLI，实现时走手动 HTTP 调用。
 
+**规范化产物输出**（工具层将原始响应映射为统一结构体，见 operations/artifacts.md §1）：
+
+```json
+{
+  "artifacts": [
+    {
+      "name": "demo-1.0.0.jar",
+      "type": "artifact",
+      "language": "Java",
+      "record_id": "7f8c1d2e-...-36位uuid",
+      "size_bytes": 245760,
+      "uri": "cloudartifact://demo-project/demo/1.0.0/demo-1.0.0.jar",
+      "console_url": "https://console.huaweicloud.com/codearts/artifact/#/repository/demo-project/demo/1.0.0"
+    }
+  ],
+  "job_id": "f9d6c8466d614a9788e9a0acf6c15f46",
+  "build_no": 13
+}
+```
+
+**下载策略（当前版本）**：不提供下载（download_url 需 token），仅返回 `console_url` 支持用户跳转控制台查看；大文件下载 M2 规划（见 operations/artifacts.md §5）。
+
 ---
 
 ### 2.13 codeartsbuild_list_templates
@@ -878,7 +901,14 @@ v4: ShowRecordDetail, DownloadBuildLog
   "stderr_tail": "",
   "duration_seconds": 120,
   "artifacts": [
-    { "name": "demo-1.0.0.jar", "path": "target/demo-1.0.0.jar", "type": "jar", "size_bytes": 245760 }
+    {
+      "name": "demo-1.0.0.jar",
+      "type": "local",
+      "language": "Java",
+      "record_id": "2026-09-16_100000",
+      "size_bytes": 245760,
+      "uri": "target/demo-1.0.0.jar"
+    }
   ],
   "recommended_steps": [
     { "module_id": "maven", "name": "Maven 构建", "command": "mvn package -DskipTests" },
@@ -890,6 +920,8 @@ v4: ShowRecordDetail, DownloadBuildLog
   }
 }
 ```
+
+> 产物结构体：`type: local`（本地介质，统一结构体见 operations/artifacts.md §1）；`language` 语言类型、`record_id` 留档 ID、`uri` 为仓库内相对路径。
 
 **recommendedSteps → create_job.steps 映射契约（待办 #5 补齐）**：
 
