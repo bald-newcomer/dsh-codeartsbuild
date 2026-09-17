@@ -50,11 +50,17 @@ dsh-codeartsbuild/
 
 | 文档 | 路径 | 状态 | 说明 |
 |------|------|------|------|
-| 架构设计 | `docs/architecture.md` | ✅ v0.6 | 业务抽象、dsh 形态、src 分包、KooCLI 实测、v1/v4 优先 |
-| 工具接口契约 | `docs/api-contract.md` | ✅ v0.4.3 | 16 原子工具、参数/返回/错误码、工作流编排、禁用 v3 旧版接口 |
+| 架构设计 | `docs/architecture.md` | ✅ v0.7.4 | 业务抽象、dsh 形态、双 Provider、KooCLI 实测、修复闭环 |
+| 工具接口契约 | `docs/api-contract.md` | ✅ v0.4.5 | 16 原子工具、参数/返回/错误码、工作流编排、禁用 v3 旧版接口 |
 | 认证与凭据管理 | `docs/auth.md` | ✅ v0.1 | KooCLI 安装配置、AK/SK 管理、Token 自动处理 |
-| 代码仓构建流程 | `docs/repo-analyzer.md` | ✅ v0.2.1 | 单一 `repo_build`、异常升级、留档 |
+| 代码仓构建流程 | `docs/repo-analyzer.md` | ✅ v0.2.2 | 单一 `repo_build`、异常升级、留档、recommended_steps 映射 |
 | 日志清洗器规范 | `docs/log-cleaner.md` | ✅ v0.2 | 基于真实日志重设计：job_key/资源池/步骤/错误码 |
+| 使用指南 | `docs/usage.md` | ✅ v0.1 | 安装、配置、典型流程示例 |
+| 错误码与故障排查 | `docs/errors.md` | ✅ v0.1 | 错误码表、日志清洗分类、故障排查 |
+| 需求说明（PRD） | `docs/prd.md` | ✅ v0.1 | 用户故事、功能范围、非功能需求 |
+| 产物规范 | `docs/artifacts.md` | ✅ v0.1 | 产物双链接、类型、下载规范 |
+| 风险与合规 | `docs/risk-compliance.md` | ✅ v0.1 | 安全设计、权限最小化、审计 |
+| 变更记录 | `docs/changelog.md` | ✅ v0.1 | 版本演进、变更历史汇总 |
 | KooCLI 操作列表 | `docs/koocli-codeartsbuild-ops.txt` | ✅ 已实测 | v7.2.12 完整操作列表（约 130 个操作） |
 | Skill 定义 | `skills/codeartsbuild/SKILL.md` | ✅ v0.4.3 | 工具清单、强制规约（数据来源映射）、建议操作路径 |
 

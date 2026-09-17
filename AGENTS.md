@@ -63,7 +63,7 @@ graph LR
 | # | 事项 | 状态 |
 |---|------|------|
 | 1 | 接口契约待人工确认项：record_id 对应关系、ShowNewOutput 字段、ExecuteJob 分支约定、get_status 替换接口 | ⏳ 待确认 |
-| 2 | 按序编写：`usage.md` → `errors.md` → `prd.md` → `artifacts.md` → `risk-compliance.md` → `changelog.md` | ⏳ 待办 |
+| 2 | ~~按序编写文档~~（usage.md / errors.md / prd.md / artifacts.md / risk-compliance.md / changelog.md 已完成） | ✅ 完成 |
 | 3 | projectId 项目管理/维护（自动选择、缓存、权限校验） | ⏳ 待办 |
 | 4 | ~~架构缺口：wait_build 轮询参数~~（契约 §2.14 + 架构 §4.5 WaitOpts 已补齐：指数退避/超时 TIMEOUT 非异常/网络重试） | ✅ 完成 |
 | 5 | ~~架构缺口：repo_build→create_job 映射~~（契约 §2.16 recommended_steps 同构 + repo_type→module_id 映射已补齐） | ✅ 完成 |
