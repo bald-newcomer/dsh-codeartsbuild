@@ -1,10 +1,10 @@
 # CodeArtsBuild 插件 — 代码仓构建流程设计
 
 > **文档编号**: CAB-REPO-001  
-> **版本**: v0.2.0（AI 自主构建流程）  
-> **日期**: 2026-09-16  
+> **版本**: v0.2.2（recommended_steps 映射）  
+> **日期**: 2026-09-17  
 > **状态**: 待评审  
-> **前置依赖**: 架构设计 v0.6.0（`docs/architecture.md` §4.6）、接口契约 v0.3.x（`docs/api-contract.md` §2.16）
+> **前置依赖**: 架构设计 v0.7.1（`docs/architecture.md` §4.6）、接口契约 v0.4.5（`docs/api-contract.md` §2.16）
 
 ## 修订记录
 
@@ -13,6 +13,7 @@
 | v0.1.0 | 2026-09-15 | 初始规范草案（技术栈检测规则表、编译路由） |
 | v0.2.0 | 2026-09-16 | **重构为 AI 自主构建流程设计**：编译构建对维护良好的代码仓而言可完全交给 AI 完成；本文档定义该阶段的流程、tools、规约，重点设计输入/输出/异常处理/留档，不再呈现"如何分析"的具体细节 |
 | v0.2.1 | 2026-09-16 | **本地构建域收敛为单一 `repo_build`**：探测/编译指导/执行/产物/留档内置；编译命令与异常修复由模型自决 |
+| v0.2.2 | 2026-09-17 | **recommended_steps 映射（待办 #5）**：输出新增 `recommended_steps`（与 create_job.steps 同构），可直接作为云端任务入参 |
 
 ---
 
@@ -86,6 +87,10 @@
       "size_bytes": 245760
     }
   ],
+  "recommended_steps": [
+    { "module_id": "maven", "name": "Maven 构建", "command": "mvn package -DskipTests" },
+    { "module_id": "upload_artifact", "name": "上传软件包到软件发布库" }
+  ],
   "issues": [
     {
       "level": "warning",
@@ -101,6 +106,8 @@
   }
 }
 ```
+
+> **`recommended_steps` 与 `create_job.steps` 同构**（`module_id` + `name` 必填），可直接作为 `create_job` 入参（契约 §2.16 映射契约）。
 
 ### 2.3 状态语义
 

@@ -65,10 +65,10 @@ graph LR
 | 1 | 接口契约待人工确认项：record_id 对应关系、ShowNewOutput 字段、ExecuteJob 分支约定、get_status 替换接口 | ⏳ 待确认 |
 | 2 | 按序编写：`usage.md` → `errors.md` → `prd.md` → `artifacts.md` → `risk-compliance.md` → `changelog.md` | ⏳ 待办 |
 | 3 | projectId 项目管理/维护（自动选择、缓存、权限校验） | ⏳ 待办 |
-| 4 | **架构缺口（完备性评估 2026-09-17，P0）**：`wait_build` 轮询参数（间隔/退避/最大超时阈值、超时后行为）未定义，需在架构 §4.5/契约 §2.14 补齐 | ⏳ 待办 |
-| 5 | **架构缺口（P0）**：`repo_build` 的 `recommendedSteps` → `create_job.steps` 映射契约缺失（module_id/name 必填），需约束输出格式与 create_job 入参同构 | ⏳ 待办 |
-| 6 | **架构缺口（P1）**：G2 修复闭环时序（建议→修复→重试→再诊断，上限 3 轮）未在架构建模，需补 §6.3 | ⏳ 待办 |
-| 7 | **架构缺口（P1）**：projectId 会话级传递机制（一次填写、`create_job`/`list_records` 复用）未设计 | ⏳ 待办 |
-| 8 | **架构缺口（P2）**：`get_status` 替换接口决策后，同步更新架构 §4.8 标注（与 #1 联动） | ⏳ 待办 |
-| 9 | **架构缺口（P2）**：`local-build`/`repo_build` 分包定位（现归 infra/，属场景 B 核心能力，评审是否上移） | ⏳ 待办 |
+| 4 | ~~架构缺口：wait_build 轮询参数~~（契约 §2.14 + 架构 §4.5 WaitOpts 已补齐：指数退避/超时 TIMEOUT 非异常/网络重试） | ✅ 完成 |
+| 5 | ~~架构缺口：repo_build→create_job 映射~~（契约 §2.16 recommended_steps 同构 + repo_type→module_id 映射已补齐） | ✅ 完成 |
+| 6 | ~~架构缺口：G2 修复闭环~~（架构 §6.3 已建模：3 轮上限、本地/云端双路径、超限升级） | ✅ 完成 |
+| 7 | ~~架构缺口：projectId 会话级传递~~（架构 §4.3 已设计：会话上下文缓存、优先级 显式>会话>配置>询问） | ✅ 完成 |
+| 8 | 架构缺口：`get_status` 替换接口 —— 架构 §4.8 已加"待定"标注（与契约 §8 #7 对齐）；**替换决策待人工确认**（候选 `ShowRunningStatus`/`ShowJobBuildRecordDetail`），确认后同步更新 | ⏳ 待人工决策 |
+| 9 | ~~架构缺口：local-build 分包定位~~（评审结论：repo_build 为场景 B 核心能力，已上移至 `providers/local-build/`，与云侧 Provider 对等） | ✅ 完成 |
 | 10 | **架构缺口（P3，M2+）**：list_* 缓存策略、多会话并发隔离（run_job/wait_build/stop_job）、契约一致性测试（实现 vs api-contract）、KooCLI 版本兼容、配置优先级（env vs cordis config） | ⏳ 待办 |
