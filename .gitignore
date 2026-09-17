@@ -8,3 +8,6 @@ dist/
 .opencode/
 docs/临时记录.md
 docs/example/
+
+# codegraph index cache
+.codegraph/
