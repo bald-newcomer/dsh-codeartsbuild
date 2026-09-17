@@ -4,7 +4,7 @@
 > **版本**: v0.4.5（repo_build→create_job 映射）  
 > **日期**: 2026-09-17  
 > **状态**: 待人工评审确认  
-> **前置依赖**: 架构设计 v0.7.1（`docs/architecture.md`）  
+> **前置依赖**: 架构设计 v0.7.1（`docs/architecture/architecture.md`）  
 
 ## 修订记录
 

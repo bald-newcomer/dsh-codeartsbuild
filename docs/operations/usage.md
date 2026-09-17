@@ -4,7 +4,7 @@
 > **版本**: v0.1.0（草案）  
 > **日期**: 2026-09-17  
 > **状态**: 待评审  
-> **前置依赖**: 架构设计 v0.7.4（`docs/architecture.md`）、接口契约 v0.4.5（`docs/api-contract.md`）
+> **前置依赖**: 架构设计 v0.7.4（`docs/architecture/architecture.md`）、接口契约 v0.4.5（`docs/api/api-contract.md`）
 
 ## 修订记录
 
@@ -27,7 +27,7 @@
 ### 1.2 安装 KooCLI 并配置凭据
 
 ```bash
-# 安装 KooCLI（详见 docs/auth.md）
+# 安装 KooCLI（详见 docs/operations/auth.md）
 # 配置 AK/SK 与区域（一次性）
 hcloud configure set --cli-access-key=<AK> --cli-secret-key=<SK> --cli-region=cn-north-4
 
@@ -153,7 +153,7 @@ get_log(recordId)                           → 拉取并清洗日志
 
 | 问题 | 处理 |
 |------|------|
-| hcloud 未安装 | 见 docs/auth.md §2 安装指引 |
+| hcloud 未安装 | 见 docs/operations/auth.md §2 安装指引 |
 | 认证失败 | 检查 `hcloud configure show`；KooCLI 自动处理 Token |
 | 找不到项目/任务 | `list_projects` / `list_jobs` 确认 ID；检查 region 是否正确 |
 | 构建失败 | 走 G2 诊断流程（get_log → 分析 → 修复闭环） |

@@ -4,7 +4,7 @@
 > **版本**: v0.1.0（草案）  
 > **日期**: 2026-09-15  
 > **状态**: 待评审  
-> **前置依赖**: 架构设计 v0.3.0（`docs/architecture.md` §8.1）
+> **前置依赖**: 架构设计 v0.3.0（`docs/architecture/architecture.md` §8.1）
 
 ## 修订记录
 
@@ -179,7 +179,7 @@ hcloud configure delete --yes
 | 最小权限 | 建议创建**仅含 CodeArtsBuild 操作权限的 IAM 子账号**，使用其 AK/SK |
 | 配置目录权限 | `~/.hcloud/` 含 AK/SK 与 Token，建议仅当前用户可读写 |
 | 不落盘 | 插件不将凭据写入项目文件，工具结果不含敏感字段 |
-| 日志脱敏 | 清洗后的日志不包含凭据信息（见 `docs/log-cleaner.md` §7） |
+| 日志脱敏 | 清洗后的日志不包含凭据信息（见 `docs/design/log-cleaner.md` §7） |
 | AK/SK 轮换 | 定期轮换 AK/SK，轮换后重新执行 `hcloud configure set` |
 
 ---

@@ -13,17 +13,17 @@
 | 路径 | 职责 |
 |------|------|
 | `skills/codeartsbuild/SKILL.md` | Skill 定义（工具清单/强制规约/建议操作路径），**LLM 编排依据** |
-| `docs/api-contract.md` | 工具接口契约，**工具的唯一事实来源**，实现必须与之一致 |
-| `docs/architecture.md` | 架构设计（v0.6） |
-| `docs/repo-analyzer.md` | 本地构建流程（`repo_build` 规约） |
-| `docs/log-cleaner.md` | 日志清洗规范 |
+| `docs/api/api-contract.md` | 工具接口契约，**工具的唯一事实来源**，实现必须与之一致 |
+| `docs/architecture/architecture.md` | 架构设计（v0.6） |
+| `docs/design/repo-analyzer.md` | 本地构建流程（`repo_build` 规约） |
+| `docs/design/log-cleaner.md` | 日志清洗规范 |
 | `src/` | 插件实现；工具经 `ctx.tools.register(defineTool(...))` 注册 |
 | `README.md` | 面向用户的项目入口（安装/使用/文档索引），**不含代理规约** |
 
 ## 工作规约
 
-1. **文档先行**：所有实现以 `docs/architecture.md` 为准，代码与文档不一致视为缺陷。
-2. **契约驱动**：`docs/api-contract.md` 是工具的唯一事实来源，先定契约再实现；改工具须同步更新契约。
+1. **文档先行**：所有实现以 `docs/architecture/architecture.md` 为准，代码与文档不一致视为缺陷。
+2. **契约驱动**：`docs/api/api-contract.md` 是工具的唯一事实来源，先定契约再实现；改工具须同步更新契约。
 3. **实测对齐**：华为云操作名/参数以 KooCLI 实测为准；未实测的标注"待确认"，不得臆造参数。
 4. **v3 禁用**：CodeArtsBuild `/v3/...` 旧版接口一律禁用；仅用 v1/v4 推荐接口（白名单见 api-contract §1.4.3）。
 5. **最小文档集**：不写空话，每个文档必须有可执行、可验证的内容。

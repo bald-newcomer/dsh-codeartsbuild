@@ -4,7 +4,7 @@
 > **版本**: v0.1.0（草案）  
 > **日期**: 2026-09-17  
 > **状态**: 待评审  
-> **前置依赖**: 架构设计 v0.7.4（`docs/architecture.md` §9）、认证说明（`docs/auth.md` §8）
+> **前置依赖**: 架构设计 v0.7.4（`docs/architecture/architecture.md` §9）、认证说明（`docs/operations/auth.md` §8）
 
 ## 修订记录
 
