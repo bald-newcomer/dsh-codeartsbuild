@@ -4,7 +4,7 @@
 > **版本**: v0.1.0（草案）  
 > **日期**: 2026-09-17  
 > **状态**: 待评审  
-> **前置依赖**: 接口契约 v0.4.5（`docs/api-contract.md` §3）、日志清洗器 v0.2（`docs/log-cleaner.md`）
+> **前置依赖**: 接口契约 v0.4.5（`docs/api/api-contract.md` §3）、日志清洗器 v0.2（`docs/design/log-cleaner.md`）
 
 ## 修订记录
 

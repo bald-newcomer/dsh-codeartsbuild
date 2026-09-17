@@ -4,7 +4,7 @@
 > **版本**: v0.2.2（recommended_steps 映射）  
 > **日期**: 2026-09-17  
 > **状态**: 待评审  
-> **前置依赖**: 架构设计 v0.7.1（`docs/architecture.md` §4.6）、接口契约 v0.4.5（`docs/api-contract.md` §2.16）
+> **前置依赖**: 架构设计 v0.7.1（`docs/architecture/architecture.md` §4.6）、接口契约 v0.4.5（`docs/api/api-contract.md` §2.16）
 
 ## 修订记录
 

@@ -228,13 +228,27 @@ dsh-codeartsbuild/                      # dsh 插件（bundle），唯一终端�
 │   │   └── log-cleaner.ts              # 日志清洗器（详情见 log-cleaner.md）
 │   └── index.ts                        # 模块出口（聚合导出）
 │
-└── docs/
-    ├── architecture.md                 # 本文件
-    ├── api-contract.md                 # 工具接口契约
-    ├── auth.md                         # KooCLI 认证说明
-    ├── repo-analyzer.md                # 代码仓分析器详细设计
-    ├── log-cleaner.md                  # 日志清洗器详细设计
-    └── usage.md                        # 使用指南（待写）
+└── docs/                                # 软件工程六层文档体系
+    ├── requirements/                    # 需求层
+    │   └── prd.md                       # 需求说明
+    ├── architecture/                    # 架构设计层
+    │   └── architecture.md              # 本文件
+    ├── design/                          # 概要/详细设计层
+    │   ├── repo-analyzer.md             # 代码仓构建流程（概要）
+    │   └── log-cleaner.md               # 日志清洗器（详细）
+    ├── api/                             # 接口契约层
+    │   ├── api-contract.md              # 工具接口契约
+    │   └── koocli-codeartsbuild-ops.txt # KooCLI 操作列表归档
+    ├── operations/                      # 运维/用户文档层
+    │   ├── usage.md                     # 使用指南
+    │   ├── errors.md                    # 错误码排查
+    │   ├── auth.md                      # KooCLI 认证说明
+    │   ├── artifacts.md                 # 产物规范
+    │   └── risk-compliance.md           # 风险合规
+    ├── management/                      # 项目管理层
+    │   ├── changelog.md                 # 变更记录
+    │   └── README.md                    # 文档索引（原 docs/README.md 迁入）
+    └── example/                         # 真实样本（不入库）
 ```
 
 #### 4.1.1 src 分包拆分依据
@@ -401,7 +415,7 @@ interface LogError {
 
 - **职责**：输入仓库路径 → 输出语言/构建工具/推荐模板/编译路由/推荐步骤
 - **实现**：`src/infra/repo-analyzer.ts`
-- **详细设计**（检测规则表、优先级、Monorepo 处理、边界情况）：见 `docs/repo-analyzer.md`
+- **详细设计**（检测规则表、优先级、Monorepo 处理、边界情况）：见 `docs/design/repo-analyzer.md`
 
 ### 4.7 日志清洗器
 
@@ -410,7 +424,7 @@ interface LogError {
 - **职责**：输入原始日志 → 输出 `BuildLog` 结构化模型（见 §4.5）+ 错误摘要
 - **获取时机约束**：日志**仅在 error 分析场景**（构建失败 / 用户显式要求）时通过 download 接口获取；大日志按需截断（标记 `truncated`/`byteSize`）；正常状态查询不拉取
 - **实现**：`src/infra/log-cleaner.ts`
-- **详细设计**（处理流水线、三区采样、错误分类表、脱敏）：见 `docs/log-cleaner.md`
+- **详细设计**（处理流水线、三区采样、错误分类表、脱敏）：见 `docs/design/log-cleaner.md`
 
 清洗后的结构化日志交给 LLM 做根因分析，Skill 指令引导 LLM：
 > "以下是清洗后的构建日志摘要，请分析失败根因并给出修复建议："
@@ -445,11 +459,11 @@ interface LogError {
 
 **v3 旧版接口（禁用）**：`CreateBuildJob`、`RunJob`、`UpdateBuildJob`、`DeleteBuildJob`、`StopJob`、`StopBuildJob`、`ListJobConfig`、`ShowJobStatus`、`ShowListHistory`、`ShowLastHistory`、`ShowListPeriodHistory`、`ShowHistoryDetails`、`ShowRecordInfo`、`ShowOutputInfo`、`ShowJobListByProjectId`、`ListBuildInfoRecord`、`ShowJobSuccessRatio`、`DownloadLogByRecordId`、`DownloadRealTimeLog`、`ListNotice`、`ListTemplates`。
 
-> ⚠️ **接口禁用规则（评审决策）**：CodeArtsBuild **v3 为旧版接口（禁用）**，**v1/v4 为新接口（优先使用）**。判定依据为 KooCLI 服务定义中的 `Request.Path`（如 `ExecuteJob`→`/v1/job/execute`、`RunJob`→`/v3/jobs/build`）。完整禁用清单与推荐白名单见 `docs/api-contract.md` §1.4。
+> ⚠️ **接口禁用规则（评审决策）**：CodeArtsBuild **v3 为旧版接口（禁用）**，**v1/v4 为新接口（优先使用）**。判定依据为 KooCLI 服务定义中的 `Request.Path`（如 `ExecuteJob`→`/v1/job/execute`、`RunJob`→`/v3/jobs/build`）。完整禁用清单与推荐白名单见 `docs/api/api-contract.md` §1.4。
 
 ### 4.9 CodeArtsBuild 完整操作列表（实测归档）
 
-**完整操作列表已归档**：`docs/koocli-codeartsbuild-ops.txt`（2026-09-16，KooCLI v7.2.12 实测，136 行 / 约 130 个操作，已去除 ANSI 颜色码）。
+**完整操作列表已归档**：`docs/api/koocli-codeartsbuild-ops.txt`（2026-09-16，KooCLI v7.2.12 实测，136 行 / 约 130 个操作，已去除 ANSI 颜色码）。
 
 操作清单按功能域分类：
 
@@ -465,13 +479,13 @@ interface LogError {
 | **通知/权限/其他** | `ShowJobNoticeConfigInfo`、`ListNotice`、`UpdateNotice`、`UpdateNewNoticeNew`、`DisableNotice`、`ShowJobRolePermission`、`ShowJobPipelineInfo`、`ShowDomainStatus`、`ShowDomainsStatuses`、`ShowUserChargeType`、`ShowUserOverPackageQuota`、`CheckJobNameIsExists`、`CheckJobInternal`、`CheckJobCountIsTopLimit`、`CheckWebhookUrl`、`ClearRecyclingJobs`、`ListRecyclingJob`、`RestoreRecyclingJobs`、`DeleteRecyclingJobs`、`SetKeepTime`、`ShowActionIInfo`、`ShowAvailableInnerSpec`、`ShowReportSummary`、`ShowSummaryBuildJobInfo`、`ShowPackageSpecCountDown`、`ListEndPoints`、`ListGroupTree`、`CreateJobGroup`、`UpdateJobGroup`、`DeleteGroup`、`MoveGroup`、`BatchUpdateJobRolePermission`、`ListJunitCoverageSummary`、`DownloadJunitCoverageZip`、`ShowDisable`、`DisableBuildJob`、`EnableBuildJob`、`DisableTheJob`、`SwitchedPacket`、`ListUpdateJobHistory`、`ListRepository`、`ListRepoBranch` |
 
 > 该文件是 KooCLI 实测原始归档，后续如需更新（KooCLI 升级后），重跑：
-> `hcloud CodeArtsBuild --help | sed 's/\x1b\[[0-9;]*m//g' > docs/koocli-codeartsbuild-ops.txt`
+> `hcloud CodeArtsBuild --help | sed 's/\x1b\[[0-9;]*m//g' > docs/api/koocli-codeartsbuild-ops.txt`
 
 ---
 
 ## 5. 工具契约（摘要）
 
-完整契约见 `docs/api-contract.md`（待按 KooCLI 实测人工确认）。工具全景：
+完整契约见 `docs/api/api-contract.md`（待按 KooCLI 实测人工确认）。工具全景：
 
 | # | 工具 | 输入（**必填**） | 输出要点 |
 |---|------|------------------|----------|
@@ -625,7 +639,7 @@ flowchart TD
 
 ### 7.3 日志清洗错误分类
 
-> 错误分类详细设计（匹配模式、多错误场景、截断策略）已迁移至 `docs/log-cleaner.md`，此处仅保留分类总览：
+> 错误分类详细设计（匹配模式、多错误场景、截断策略）已迁移至 `docs/design/log-cleaner.md`，此处仅保留分类总览：
 
 | errorType | 匹配模式 | 典型场景 |
 |-----------|----------|----------|

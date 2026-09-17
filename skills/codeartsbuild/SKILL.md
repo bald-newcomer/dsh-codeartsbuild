@@ -159,8 +159,8 @@ plugins:
 
 ## 参考
 
-- 架构设计：`../../docs/architecture.md`（v0.6）
-- 工具契约：`../../docs/api-contract.md`（v0.4.3）
-- 本地构建流程：`../../docs/repo-analyzer.md`（v0.2.1）
-- 日志清洗规范：`../../docs/log-cleaner.md`（v0.2）
+- 架构设计：`../../docs/architecture/architecture.md`（v0.6）
+- 工具契约：`../../docs/api/api-contract.md`（v0.4.3）
+- 本地构建流程：`../../docs/design/repo-analyzer.md`（v0.2.1）
+- 日志清洗规范：`../../docs/design/log-cleaner.md`（v0.2）
 - [CodeArts Build API 参考](https://support.huaweicloud.com/api-codeci/cloudbuild_03_0000.html)

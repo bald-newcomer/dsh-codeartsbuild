@@ -4,7 +4,7 @@
 > **版本**: v0.2.0（基于真实日志重设计）  
 > **日期**: 2026-09-16  
 > **状态**: 待评审  
-> **前置依赖**: 架构设计 v0.6.0（`docs/architecture.md` §4.7）、接口契约 v0.3.x（`docs/api-contract.md` §2.15）  
+> **前置依赖**: 架构设计 v0.6.0（`docs/architecture/architecture.md` §4.7）、接口契约 v0.3.x（`docs/api/api-contract.md` §2.15）  
 > **真实样本**: `docs/example/j_KiBa9Q4j.txt`（425 行，Docker 镜像构建失败，错误码 `DEV.CB.0210043`）
 
 ## 修订记录
