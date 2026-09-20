@@ -25,7 +25,7 @@
 1. **文档先行**：所有实现以 `docs/architecture/architecture.md` 为准，代码与文档不一致视为缺陷。
 2. **契约驱动**：`docs/api/api-contract.md` 是工具的唯一事实来源，先定契约再实现；改工具须同步更新契约。
 3. **实测对齐**：华为云操作名/参数以 KooCLI 实测为准；未实测的标注"待确认"，不得臆造参数。
-4. **v3 禁用**：CodeArtsBuild `/v3/...` 旧版接口一律禁用；仅用 v1/v4 推荐接口（白名单见 api-contract §1.4.3）。
+4. **v3/v4 禁用**：CodeArtsBuild `/v3/...`、`/v4/...` 旧版接口一律禁用；仅用 v1 推荐接口（白名单见 api-contract §1.4.3）。
 5. **最小文档集**：不写空话，每个文档必须有可执行、可验证的内容。
 6. **禁止擅自删除文件**：未经用户明确同意，禁止删除任何文件（含空临时文件）。删除前必须先询问并获得授权。
 
@@ -63,15 +63,10 @@ graph LR
 
 | # | 事项 | 状态 |
 |---|------|------|
-| 1 | 接口契约待人工确认项：record_id 对应关系、ShowNewOutput 字段、ExecuteJob 分支约定、get_status 替换接口 | ⏳ 待确认 |
-| 2 | ~~按序编写文档~~（usage.md / errors.md / prd.md / artifacts.md / risk-compliance.md / changelog.md 已完成） | ✅ 完成 |
 | 3 | projectId 项目管理/维护（自动选择、缓存、权限校验） | ⏳ 待办 |
-| 4 | ~~架构缺口：wait_build 轮询参数~~（契约 §2.14 + 架构 §4.5 WaitOpts 已补齐：指数退避/超时 TIMEOUT 非异常/网络重试） | ✅ 完成 |
-| 5 | ~~架构缺口：repo_build→create_job 映射~~（契约 §2.16 recommended_steps 同构 + repo_type→module_id 映射已补齐） | ✅ 完成 |
-| 6 | ~~架构缺口：G2 修复闭环~~（架构 §6.3 已建模：3 轮上限、本地/云端双路径、超限升级） | ✅ 完成 |
-| 7 | ~~架构缺口：projectId 会话级传递~~（架构 §4.3 已设计：会话上下文缓存、优先级 显式>会话>配置>询问） | ✅ 完成 |
-| 8 | 架构缺口：`get_status` 替换接口 —— 架构 §4.8 已加"待定"标注（与契约 §8 #7 对齐）；**替换决策待人工确认**（候选 `ShowRunningStatus`/`ShowJobBuildRecordDetail`），确认后同步更新 | ⏳ 待人工决策 |
-| 9 | ~~架构缺口：local-build 分包定位~~（评审结论：repo_build 为场景 B 核心能力，已上移至 `providers/local-build/`，与云侧 Provider 对等） | ✅ 完成 |
 | 10 | **架构缺口（P3，M2+）**：list_* 缓存策略、多会话并发隔离（run_job/wait_build/stop_job）、契约一致性测试（实现 vs api-contract）、KooCLI 版本兼容、配置优先级（env vs cordis config） | ⏳ 待办 |
-| 11 | **各 tool 详细设计**：对 16 个工具逐一详细设计（输入/输出/错误/边界）；简单接口从简，`create_job`（创建任务）需**较为详尽的设计**（参数组装、模板化、推荐步骤映射、校验规则） | ⏳ 待办 |
 | 12 | **流程优化**：`run_job`（或 wait_build 轮询）使用**子进程（child_process）**承载任务状态 loop，避免阻塞主进程；需评估子进程管理（超时/终止/回收） | ⏳ 待办 |
+| 15 | **模板验证测试套**：调用实际接口，创建各种场景的自动化任务步骤，验证模板有效性（覆盖主要语言/场景组合） | ⏳ 待办 |
+| 16 | **模板更新机制**：① step 模板——调用 `ListModulesDetail` 重新获取并评估更新；② config 模板——调用任意构建任务接口（`ShowJobConfig`）获取 config 评估更新 | ⏳ 待办 |
+| 17 | ~~脚本迁移（HTTP 化）~~：`scripts/run-layer2.js` / `scripts/delete-jobs.mjs` 已迁移到 `HttpClient`（http-migration-plan.md §1.1），移除 CAB_AUTH_PROJECT_ID 依赖 | ✅ 完成 |
+| 18 | ~~废弃文件清理~~：`src/infra/sdk-client.ts` / `sdk-proxy-patch.ts` / `lib/infra/koo-cli.js` 已删除 | ✅ 完成 |

@@ -1,9 +1,24 @@
 {
-  "name": "codeartsbuild-mcp",
+  "name": "@dsh-codearts/codeartsbuild",
   "version": "1.0.0",
   "description": "Huawei Cloud CodeArts Build dsh plugin - manage build task lifecycle (create, run, artifacts)",
   "type": "module",
-  "scripts": {},
+  "main": "lib/index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
   "keywords": [
     "dsh",
     "codearts",
@@ -13,6 +28,19 @@
     "ci-cd"
   ],
   "license": "MIT",
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.2",
+    "@huaweicloud/huaweicloud-sdk-core": "^3.1.215",
+    "undici": "^8.10.2",
+    "uuid": "^9.0.1"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.1.5-rc.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh": "0.1.5-rc.2",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
 }

@@ -34,17 +34,17 @@ triggers:
 | `codeartsbuild_list_projects` | 项目列表 | — |
 | `codeartsbuild_list_jobs` | 任务列表（全局） | search?, pageIndex?, pageSize? |
 | `codeartsbuild_get_job` | 任务详情 | jobId |
-| `codeartsbuild_create_job` | 创建任务 | projectId（用户填写）, jobName, arch, steps, scms? |
+| `codeartsbuild_create_job` | 创建任务（支持模板化组装） | projectId（用户填写）, jobName, arch, stepsPlan? 或 language? 或 steps, scms? |
 | `codeartsbuild_update_job` | 更新任务 | jobId, body |
 | `codeartsbuild_delete_job` | 删除任务（不可逆） | jobId |
 | `codeartsbuild_list_templates` | 模板列表（官方模板） | name?, page?, pageSize? |
-| `codeartsbuild_run_job` | 触发构建 | jobId, parameters?, scm? |
+| `codeartsbuild_run_job` | 触发构建 | jobId, parameter?, scm? |
 | `codeartsbuild_stop_job` | 停止构建 | jobId, buildNo |
-| `codeartsbuild_get_status` | 状态查询（子步骤状态，待定） | jobId, buildNo |
-| `codeartsbuild_list_records` | 构建历史列表 | projectId, limit?, offset? |
+| `codeartsbuild_get_status` | 状态查询（ShowJobBuildRecordDetail，result.status） | jobId, buildNo |
+| `codeartsbuild_list_records` | 构建历史列表 | projectId, page?, limit? |
 | `codeartsbuild_get_record` | 记录详情（含 record_id） | jobId, buildNo |
 | `codeartsbuild_wait_build` | 等待终态（轮询） | jobId, buildNo |
-| `codeartsbuild_list_artifacts` | 产物清单（软件包/镜像/OBS） | jobId, buildNo |
+| `codeartsbuild_list_artifacts` | 产物清单（软件包/镜像） | jobId, buildNo |
 | `codeartsbuild_get_log` | 日志拉取+清洗 | recordId, logLevel?, maxBytes? |
 
 ---
@@ -59,16 +59,19 @@ triggers:
 
 | 主键 | 获取方式 | 需要它的工具 |
 |------|----------|--------------|
-| **project_id** | **用户手动填写**；项目管理/维护后续拓展（TODO） | `create_job` / `list_records` |
+| **project_id** | **用户指定或 `list_projects` 选择**（会话级缓存，一次填写复用；显式传参覆盖） | `create_job` / `list_records` |
 | **job_id** | `create_job` 返回；或 `list_jobs` 按名称（`search`）搜索 | `get_job` / `update_job` / `delete_job` / `run_job` / `stop_job` / `get_status` |
 | **build_no** | `run_job` 生成（每次构建独立，同 job 内递增） | `stop_job` / `wait_build` / `get_record` / `list_artifacts` / `get_status` |
 | **record_id** | `get_record(jobId, buildNo)`（唯一来源） | `get_log` |
 
-> `create_job` 的 steps 来源：`repo_build`（本地验证后）或 `list_templates`（官方模板）。
+> `create_job` 的 steps 来源（三选一，优先级 `steps` > `stepsPlan` > `language`）：
+> ① `stepsPlan`（**推荐**，意图级步骤计划）：`[{ step, properties? }]`——`step` 为 step-templates.json 模板 id（如 `maven-build`/`upload-release`）或 module_id；**数组顺序即构建步骤顺序**；`properties` 覆盖该步默认参数（如 command/image/file）。模型按用户意图定义步骤顺序与每步参数。
+> ② `language`（速选默认组合）：语言/场景标识（如 `Java/Maven（jar）`、`JavaScript/npm`、`Go`），展开为 step-templates.md §1 固定组合。
+> ③ `steps`（原样透传，高级）：取自 `repo_build` 的 recommended_steps 或 `list_templates` 官方模板（全限定名 module_id + properties）。
 
 ### 强制约束要点
 
-1. **projectId 用户手动填写**：不自动选择、不硬编码；`list_projects` 仅作查看辅助。
+1. **projectId 会话级传递**：**首次必须由用户指定或经 `list_projects` 选择**（不硬编码、不臆造），随后自动缓存复用；后续 `create_job`/`list_records` 缺省时自动取会话上下文（架构 §4.3 优先级：显式入参 > 会话上下文 > 配置默认值 > 询问）；显式传入覆盖并刷新上下文；会话 projectId 非法（删除/无权限）时报 `E_API` 并重新选择。
 2. **jobId+buildNo 必须配对**：5 个工具需同一构建的取值（同一次 `run_job` 返回或同一历史记录），不可混用。
 3. **recordId 只能来自 `get_record`**。
 4. **`delete_job` 不可逆**：调用前必须向用户确认。
@@ -87,6 +90,8 @@ triggers:
 用户：帮我基于当前项目构建并交付（projectId 由用户提供）
 repo_build → create_job → run_job → wait_build → list_artifacts
 ```
+
+**模板化创建**（无本地构建时）：`create_job` 传 `stepsPlan` 定义**步骤顺序 + 每步参数**（如 `[{step:"maven-build",properties:{command:"mvn clean package"}},{step:"upload-release",properties:{file:"target/*.jar"}}]`）；简单场景可传 `language` 速选默认组合（如 `Java/Maven（jar）`）（模板清单见 step-templates.md §7.2）。
 
 ### 意图 2：仅本地构建（验证能否编译）
 
@@ -154,13 +159,16 @@ plugins:
     name: '@dsh-codearts/codeartsbuild'
     config:
       region: cn-north-4
-      # projectId 由用户手动填写（当前版本）；项目管理/维护后续版本拓展（TODO）
+      # projectId 不在此固定——会话级动态注入（见"强制规约"#1：首次用户指定/list_projects 选择，后续自动复用）
 ```
 
 ## 参考
 
-- 架构设计：`../../docs/architecture/architecture.md`（v0.6）
-- 工具契约：`../../docs/api/api-contract.md`（v0.4.3）
-- 本地构建流程：`../../docs/design/repo-analyzer.md`（v0.2.1）
-- 日志清洗规范：`../../docs/design/log-cleaner.md`（v0.2）
+- 架构设计：`../../docs/architecture/architecture.md`
+- 工具契约：`../../docs/api/api-contract.md`
+- 本地构建流程：`../../docs/design/repo-analyzer.md`
+- 日志清洗规范：`../../docs/design/log-cleaner.md`
+- 工具详细设计：`../../docs/design/tool-details.md`
+- Step 模板库：`../../docs/design/step-templates.md`（§1 语言→组合 / §7 模板引擎）
+- 模板验证测试套件：`../../docs/design/template-validation-suite.md`（待办 #15 方案）
 - [CodeArts Build API 参考](https://support.huaweicloud.com/api-codeci/cloudbuild_03_0000.html)

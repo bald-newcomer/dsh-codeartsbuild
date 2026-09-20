@@ -1,0 +1,20 @@
+{
+  "case_id": "TV-16",
+  "name": "产物传 OBS",
+  "input": {
+    "language": "产物传 OBS"
+  },
+  "expected": {
+    "steps_count": 1,
+    "steps": [
+      {
+        "module_id": "devcloud2018.codeci_action_20057.action",
+        "name": "上传文件到OBS",
+        "properties_contains": {
+          "preCondition": "SUCCESS"
+        }
+      }
+    ]
+  },
+  "scene": "upload-obs"
+}

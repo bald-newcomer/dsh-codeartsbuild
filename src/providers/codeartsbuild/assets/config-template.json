@@ -1,0 +1,17 @@
+{
+ "arch": "x86-64",
+ "projectId": "{{projectId}}",
+ "jobName": "{{jobName}}",
+ "description": "{{description}}",
+ "steps": "{{steps}}",
+ "scms": "{{scms}}",
+ "parameters": "{{parameters}}",
+ "flavor": "DEFAULT",
+ "hostType": "devcloud",
+ "buildConfigType": "ACTION",
+ "sourceCode": "codeci",
+ "buildIfCodeUpdated": false,
+ "autoUpdateSubModule": "false",
+ "agencyUrn": "{{agencyUrn}}",
+ "groupId": "{{groupId}}"
+}

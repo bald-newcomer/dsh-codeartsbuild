@@ -1,0 +1,44 @@
+{
+  "case_id": "TV-06",
+  "name": "JavaScript/npm（容器）",
+  "input": {
+    "stepsPlan": [
+      {
+        "step": "npm-build"
+      },
+      {
+        "step": "build-image-swr",
+        "properties": {
+          "organization": "test-org",
+          "imageName": "demo-npm",
+          "tag": "v1.0"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "steps_count": 2,
+    "steps": [
+      {
+        "module_id": "devcloud2018.codeci_action_20014.action",
+        "name": "Npm构建",
+        "properties_contains": {
+          "image": "nodejs12.7.0",
+          "preCondition": "SUCCESS"
+        }
+      },
+      {
+        "module_id": "devcloud2018.codeci_action_20004.action",
+        "name": "制作镜像并推送到SWR仓库",
+        "properties_contains": {
+          "image": "docker18.03",
+          "preCondition": "SUCCESS",
+          "organization": "test-org",
+          "imageName": "demo-npm",
+          "tag": "v1.0"
+        }
+      }
+    ]
+  },
+  "scene": "npm-container"
+}

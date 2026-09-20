@@ -1,0 +1,33 @@
+{
+  "case_id": "TV-15",
+  "name": "纯镜像",
+  "input": {
+    "stepsPlan": [
+      {
+        "step": "build-image-swr",
+        "properties": {
+          "organization": "test-org",
+          "imageName": "demo-pure",
+          "tag": "v1.0"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "steps_count": 1,
+    "steps": [
+      {
+        "module_id": "devcloud2018.codeci_action_20004.action",
+        "name": "制作镜像并推送到SWR仓库",
+        "properties_contains": {
+          "image": "docker18.03",
+          "preCondition": "SUCCESS",
+          "organization": "test-org",
+          "imageName": "demo-pure",
+          "tag": "v1.0"
+        }
+      }
+    ]
+  },
+  "scene": "pure-image"
+}
