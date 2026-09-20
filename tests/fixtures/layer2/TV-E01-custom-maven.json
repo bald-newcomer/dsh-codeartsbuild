@@ -1,0 +1,46 @@
+{
+  "case_id": "TV-E01",
+  "name": "stepsPlan 自定义参数覆盖",
+  "input": {
+    "stepsPlan": [
+      {
+        "step": "maven-build",
+        "properties": {
+          "command": "mvn clean package -DskipTests",
+          "image": "maven3.5.3-jdk8-open"
+        }
+      },
+      {
+        "step": "upload-release",
+        "properties": {
+          "file": "target/*.jar",
+          "buildVersion": "1.0.0"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "steps_count": 2,
+    "steps": [
+      {
+        "module_id": "devcloud2018.codeci_action_20043.action",
+        "name": "Maven构建",
+        "properties_contains": {
+          "command": "mvn clean package -DskipTests",
+          "image": "maven3.5.3-jdk8-open",
+          "preCondition": "SUCCESS"
+        }
+      },
+      {
+        "module_id": "devcloud2018.codeci_action_20018.action",
+        "name": "上传软件包到软件发布库",
+        "properties_contains": {
+          "file": "target/*.jar",
+          "buildVersion": "1.0.0",
+          "preCondition": "SUCCESS"
+        }
+      }
+    ]
+  },
+  "scene": "custom-maven"
+}

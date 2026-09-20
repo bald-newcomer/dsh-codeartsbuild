@@ -1,0 +1,37 @@
+{
+  "case_id": "TV-E07",
+  "name": "steps 显式透传（最高优先）",
+  "input": {
+    "steps": [
+      {
+        "module_id": "devcloud2018.codeci_action_20043.action",
+        "name": "Maven构建",
+        "properties": {
+          "image": "maven3.5.3-jdk8-open",
+          "command": "mvn package",
+          "preCondition": "SUCCESS"
+        },
+        "enable": true
+      }
+    ],
+    "stepsPlan": [
+      {
+        "step": "npm-build"
+      }
+    ]
+  },
+  "expected": {
+    "steps_count": 1,
+    "steps": [
+      {
+        "module_id": "devcloud2018.codeci_action_20043.action",
+        "name": "Maven构建",
+        "properties_contains": {
+          "image": "maven3.5.3-jdk8-open",
+          "preCondition": "SUCCESS"
+        }
+      }
+    ]
+  },
+  "scene": "steps-passthrough"
+}

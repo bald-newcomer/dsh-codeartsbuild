@@ -1,0 +1,8 @@
+# cordis.patch.yml - CodeArtsBuild 插件配置层
+# 安装时合并到 dsh profile 的 cordis.yml
+plugins:
+  - id: codeartsbuild
+    name: '@dsh-codearts/codeartsbuild'
+    config:
+      region: cn-north-4
+      # projectId 不在此固定——会话级动态注入（见 SKILL.md 强制规约 #1）

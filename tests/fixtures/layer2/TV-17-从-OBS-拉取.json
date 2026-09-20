@@ -1,0 +1,30 @@
+{
+  "case_id": "TV-17",
+  "name": "从 OBS 拉取",
+  "input": {
+    "stepsPlan": [
+      {
+        "step": "download-obs",
+        "properties": {
+          "bucketName": "test-bucket",
+          "objectKey": "test-object.jar"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "steps_count": 1,
+    "steps": [
+      {
+        "module_id": "devcloud2018.codeci_action_20063.action",
+        "name": "从OBS下载文件",
+        "properties_contains": {
+          "preCondition": "SUCCESS",
+          "bucketName": "test-bucket",
+          "objectKey": "test-object.jar"
+        }
+      }
+    ]
+  },
+  "scene": "download-obs"
+}

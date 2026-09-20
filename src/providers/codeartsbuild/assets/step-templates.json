@@ -1,0 +1,183 @@
+[
+  {
+    "template_id": "maven-build",
+    "name": "Maven构建",
+    "module_id": "devcloud2018.codeci_action_20043.action",
+    "properties": {
+      "image": "maven3.5.3-jdk8-open",
+      "command": "mvn package -DskipTests",
+      "preCondition": "SUCCESS",
+      "settingMode": "auto",
+      "pomMode": "no",
+      "deal": "notDeal",
+      "ignoreTest": false,
+      "file": "",
+      "junitCoverageSwitch": false,
+      "coverageReportPath": "",
+      "cacheOption": "cached",
+      "doCheck": "disable",
+      "dependencyProjectDir": "",
+      "dependencySettings": ""
+    }
+  },
+  {
+    "template_id": "upload-release",
+    "name": "上传软件包到软件发布库",
+    "module_id": "devcloud2018.codeci_action_20018.action",
+    "properties": {
+      "image": "shell4.2.46-git1.8.3-zip6.00",
+      "file": "build/*",
+      "buildVersion": "",
+      "name": "",
+      "uploadTool": "",
+      "customUploadPath": "",
+      "remainOriginPath": "FLAT",
+      "preCondition": "SUCCESS"
+    }
+  },
+  {
+    "template_id": "build-image-swr",
+    "name": "制作镜像并推送到SWR仓库",
+    "module_id": "devcloud2018.codeci_action_20004.action",
+    "properties": {
+      "image": "docker18.03",
+      "registryUrl": "",
+      "organization": "",
+      "imageName": "",
+      "tag": "",
+      "contextPath": ".",
+      "dockerFilePath": "Dockerfile",
+      "cache": "cached",
+      "preCondition": "SUCCESS",
+      "endpointUuid": "",
+      "authUser": "current",
+      "iamEndPoint": "",
+      "selectRegion": "",
+      "setMetaData": "no"
+    }
+  },
+  {
+    "template_id": "shell-command",
+    "name": "执行shell命令",
+    "module_id": "devcloud2018.codeci_action_20017.action",
+    "properties": {
+      "image": "shell4.2.46-git1.8.3-zip6.00",
+      "command": "",
+      "preCondition": "SUCCESS"
+    }
+  },
+  {
+    "template_id": "npm-build",
+    "name": "Npm构建",
+    "module_id": "devcloud2018.codeci_action_20014.action",
+    "properties": {
+      "image": "nodejs12.7.0",
+      "command": "npm install && npm run build",
+      "preCondition": "SUCCESS"
+    }
+  },
+  {
+    "template_id": "go-build",
+    "name": "Go语言构建",
+    "module_id": "devcloud2018.codeci_action_20026.action",
+    "properties": {
+      "image": "go-1.10.3",
+      "command": "go build ./...",
+      "preCondition": "SUCCESS"
+    }
+  },
+  {
+    "template_id": "pyinstaller-build",
+    "name": "PyInstaller构建",
+    "module_id": "devcloud2018.codeci_action_20015.action",
+    "properties": {
+      "image": "python3.6",
+      "command": "python -m PyInstaller -F main.py",
+      "preCondition": "SUCCESS"
+    }
+  },
+  {
+    "template_id": "php-build",
+    "name": "PHP构建",
+    "module_id": "devcloud2018.codeci_action_20037.action",
+    "properties": {
+      "image": "php7.3.3",
+      "command": "composer install",
+      "preCondition": "SUCCESS"
+    }
+  },
+  {
+    "template_id": "cmake-build",
+    "name": "CMake构建",
+    "module_id": "devcloud2018.codeci_action_20005.action",
+    "properties": {
+      "image": "cmake3.10.1-gcc5.5.0",
+      "command": "mkdir build && cd build && cmake .. && make -j",
+      "preCondition": "SUCCESS"
+    }
+  },
+  {
+    "template_id": "gradle-build",
+    "name": "Gradle",
+    "module_id": "devcloud2018.codeci_action_20008.action",
+    "properties": {
+      "gradle": "gradle",
+      "jdk": "openjdk17",
+      "command": "gradle build",
+      "preCondition": "SUCCESS",
+      "command1": "",
+      "command2": ""
+    }
+  },
+  {
+    "template_id": "android-build",
+    "name": "Android构建",
+    "module_id": "devcloud2018.codeci_action_20032.action",
+    "properties": {
+      "gradle": "gradle",
+      "jdk": "openjdk17",
+      "ndk": "ndk",
+      "command": "gradle assembleDebug",
+      "preCondition": "SUCCESS",
+      "command1": "",
+      "command2": ""
+    }
+  },
+  {
+    "template_id": "upload-obs",
+    "name": "上传文件到OBS",
+    "module_id": "devcloud2018.codeci_action_20057.action",
+    "properties": {
+      "authorizationUser": "",
+      "iamEndPoint": "",
+      "artifactSourcePath": "",
+      "backetName": "",
+      "preCondition": "SUCCESS"
+    }
+  },
+  {
+    "template_id": "download-obs",
+    "name": "从OBS下载文件",
+    "module_id": "devcloud2018.codeci_action_20063.action",
+    "properties": {
+      "authorizationUser": "",
+      "iamEndPoint": "",
+      "bucketName": "",
+      "objectKey": "",
+      "preCondition": "SUCCESS"
+    }
+  },
+  {
+    "template_id": "unit-report",
+    "name": "单元测试报告",
+    "module_id": "devcloud2018.codeci_action_20071.action",
+    "properties": {
+      "image": "shell4.2.46-git1.8.3-zip6.00",
+      "unit_type": "junit",
+      "file": "**/TEST-*.xml",
+      "coverageFormat": "",
+      "preCondition": "SUCCESS",
+      "coverageReportPath": ""
+    }
+  }
+]

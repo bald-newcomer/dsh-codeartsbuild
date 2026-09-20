@@ -1,0 +1,29 @@
+{
+  "case_id": "TV-01",
+  "name": "Java/Maven（jar）",
+  "input": {
+    "language": "Java/Maven（jar）"
+  },
+  "expected": {
+    "steps_count": 2,
+    "steps": [
+      {
+        "module_id": "devcloud2018.codeci_action_20043.action",
+        "name": "Maven构建",
+        "properties_contains": {
+          "image": "maven3.5.3-jdk8-open",
+          "preCondition": "SUCCESS"
+        }
+      },
+      {
+        "module_id": "devcloud2018.codeci_action_20018.action",
+        "name": "上传软件包到软件发布库",
+        "properties_contains": {
+          "image": "shell4.2.46-git1.8.3-zip6.00",
+          "preCondition": "SUCCESS"
+        }
+      }
+    ]
+  },
+  "scene": "maven-jar"
+}

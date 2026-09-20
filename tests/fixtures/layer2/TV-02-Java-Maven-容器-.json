@@ -1,0 +1,44 @@
+{
+  "case_id": "TV-02",
+  "name": "Java/Maven（容器）",
+  "input": {
+    "stepsPlan": [
+      {
+        "step": "maven-build"
+      },
+      {
+        "step": "build-image-swr",
+        "properties": {
+          "organization": "test-org",
+          "imageName": "demo-maven",
+          "tag": "v1.0"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "steps_count": 2,
+    "steps": [
+      {
+        "module_id": "devcloud2018.codeci_action_20043.action",
+        "name": "Maven构建",
+        "properties_contains": {
+          "image": "maven3.5.3-jdk8-open",
+          "preCondition": "SUCCESS"
+        }
+      },
+      {
+        "module_id": "devcloud2018.codeci_action_20004.action",
+        "name": "制作镜像并推送到SWR仓库",
+        "properties_contains": {
+          "image": "docker18.03",
+          "preCondition": "SUCCESS",
+          "organization": "test-org",
+          "imageName": "demo-maven",
+          "tag": "v1.0"
+        }
+      }
+    ]
+  },
+  "scene": "maven-container"
+}

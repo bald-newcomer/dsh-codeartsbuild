@@ -1,0 +1,28 @@
+{
+  "case_id": "TV-03",
+  "name": "Java/Gradle",
+  "input": {
+    "language": "Java/Gradle"
+  },
+  "expected": {
+    "steps_count": 2,
+    "steps": [
+      {
+        "module_id": "devcloud2018.codeci_action_20008.action",
+        "name": "Gradle",
+        "properties_contains": {
+          "preCondition": "SUCCESS"
+        }
+      },
+      {
+        "module_id": "devcloud2018.codeci_action_20018.action",
+        "name": "上传软件包到软件发布库",
+        "properties_contains": {
+          "image": "shell4.2.46-git1.8.3-zip6.00",
+          "preCondition": "SUCCESS"
+        }
+      }
+    ]
+  },
+  "scene": "gradle"
+}

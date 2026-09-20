@@ -1,0 +1,1403 @@
+[
+ {
+  "module_id": "devcloud2018.codeci_action_20004.action",
+  "uuid": "20004",
+  "name": "制作镜像并推送到SWR仓库",
+  "description": "通过Dockerfile制作镜像并推送到SWR仓库。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_0013.html)",
+  "tags": [
+   "docker",
+   "swr",
+   "image",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "制作镜像并推送到SWR仓库"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "docker18.03",
+    "select": [
+     "docker18.03",
+     "docker20.10",
+     "docker29.10"
+    ]
+   },
+   {
+    "name": "registryUrl",
+    "label": "镜像仓库",
+    "required": true,
+    "default": "swr.cn-north-4.myhuaweicloud.com",
+    "select": [
+     "swr.cn-north-4.myhuaweicloud.com",
+     "other"
+    ]
+   },
+   {
+    "name": "endpointUuid",
+    "label": "镜像仓接入点",
+    "required": true
+   },
+   {
+    "name": "authUser",
+    "label": "授权用户",
+    "required": true,
+    "default": "current",
+    "select": [
+     "current",
+     "other"
+    ]
+   },
+   {
+    "name": "iamEndPoint",
+    "label": "IAM账号",
+    "required": true,
+    "default": "",
+    "select": [
+     ""
+    ]
+   },
+   {
+    "name": "selectRegion",
+    "label": "推送区域",
+    "required": true,
+    "default": ""
+   },
+   {
+    "name": "organization",
+    "label": "组织",
+    "required": true
+   },
+   {
+    "name": "imageName",
+    "label": "镜像名字",
+    "required": true
+   },
+   {
+    "name": "tag",
+    "label": "镜像标签",
+    "required": true
+   },
+   {
+    "name": "contextPath",
+    "label": "工作目录",
+    "required": true
+   },
+   {
+    "name": "dockerFilePath",
+    "label": "Dockerfile路径",
+    "required": true
+   },
+   {
+    "name": "buildArgList",
+    "label": "构建参数",
+    "required": false
+   },
+   {
+    "name": "cache",
+    "label": "使用缓存",
+    "required": true,
+    "default": "true"
+   },
+   {
+    "name": "setMetaData",
+    "label": "添加构建元数据到镜像",
+    "required": true,
+    "default": "no"
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "docker18.03",
+   "registryUrl": "",
+   "organization": "",
+   "imageName": "",
+   "tag": "",
+   "contextPath": ".",
+   "dockerFilePath": "Dockerfile",
+   "cache": "cached",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20005.action",
+  "uuid": "20005",
+  "name": "CMake构建",
+  "description": "使用CMake跨平台构建工具构建项目。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_0010.html)",
+  "tags": [
+   "build",
+   "c",
+   "cmake",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "CMake构建"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "cmake3.10.1-gcc5.5.0",
+    "select": [
+     "cmake2.8.12-gcc4.8.5",
+     "cmake2.8.12-gcc5.5.0",
+     "cmake2.8.12-gcc6.4.0",
+     "cmake2.8.12-gcc7.3.0",
+     "cmake3.10.1-gcc4.8.5",
+     "cmake3.10.1-gcc5.5.0",
+     "cmake3.10.1-gcc6.4.0",
+     "cmake3.10.1-gcc7.3.0",
+     "cmake3.15.5-gcc8.3.0",
+     "cmake3.16.5-gcc7.3.0",
+     "cmake3.16.0-gcc9.2.0",
+     "cmake3.26.5-gcc13.1.0"
+    ]
+   },
+   {
+    "name": "command",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "cmake3.10.1-gcc5.5.0",
+   "command": "mkdir build && cd build && cmake .. && make -j",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20008.action",
+  "uuid": "20008",
+  "name": "Gradle",
+  "description": "使用Gradle构建工具构建Java，Groovy和Scala项目。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_0008.html)",
+  "tags": [
+   "build",
+   "java",
+   "gradle",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "gradle环境初始化",
+   "gradle构建"
+  ],
+  "parameters": [
+   {
+    "name": "gradle",
+    "label": "Gradle",
+    "required": true,
+    "default": "4.8",
+    "select": [
+     "4.8",
+     "8.10.2",
+     "8.5",
+     "8.2.1",
+     "8.0",
+     "7.3",
+     "7.2",
+     "7.1",
+     "7.0",
+     "6.9",
+     "6.8",
+     "6.7",
+     "6.6",
+     "6.5",
+     "6.4",
+     "6.3",
+     "6.2",
+     "6.1",
+     "6.0",
+     "5.6",
+     "5.5",
+     "5.4",
+     "5.3",
+     "5.2",
+     "5.1",
+     "5.0",
+     "4.9",
+     "4.8",
+     "4.7",
+     "4.6",
+     "4.5",
+     "4.4",
+     "4.3",
+     "4.2",
+     "4.1",
+     "3.3",
+     "2.14.1",
+     "2.13"
+    ]
+   },
+   {
+    "name": "jdk",
+    "label": "JDK",
+    "required": true,
+    "default": "1.8",
+    "select": [
+     "21",
+     "17",
+     "16",
+     "15",
+     "14",
+     "13",
+     "12",
+     "11",
+     "10",
+     "1.9",
+     "1.8",
+     "1.7"
+    ]
+   },
+   {
+    "name": "command1",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "command2",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "command",
+    "label": "命令",
+    "required": false
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "gradle": "gradle",
+   "jdk": "openjdk17",
+   "command": "gradle build",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20014.action",
+  "uuid": "20014",
+  "name": "Npm构建",
+  "description": "使用Npm工具管理软件包，能做vue和webpack的构建。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_0007.html)",
+  "tags": [
+   "build",
+   "nodejs",
+   "npm",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "npm构建"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "nodejs12.7.0",
+    "select": [
+     "nodejs8.11.2",
+     "nodejs10.1.0",
+     "nodejs10.15.3",
+     "nodejs12.7.0",
+     "nodejs13",
+     "nodejs14",
+     "nodejs15",
+     "nodejs16",
+     "nodejs18",
+     "nodejs20",
+     "nodejs21",
+     "nodejs22",
+     "nodejs24"
+    ]
+   },
+   {
+    "name": "command",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "nodejs12.7.0",
+   "command": "npm install && npm run build",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20015.action",
+  "uuid": "20015",
+  "name": "PyInstaller构建",
+  "description": "使用Pyinstaller工具构建Python项目。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_00092.html)",
+  "tags": [
+   "build",
+   "python",
+   "pyinstaller",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "PyInstall构建"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "python3.6",
+    "select": [
+     "python2.7",
+     "python3.5",
+     "python3.6",
+     "python3.7",
+     "python3.8",
+     "python3.9",
+     "python3.10",
+     "python3.11",
+     "python3.12"
+    ]
+   },
+   {
+    "name": "command",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "python3.6",
+   "command": "python -m PyInstaller -F main.py",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20017.action",
+  "uuid": "20017",
+  "name": "执行shell命令",
+  "description": "执行shell命令。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_0033.html)",
+  "tags": [
+   "shell",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "shell构建"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "shell4.2.46-git1.8.3-zip6.00",
+    "select": [
+     "shell4.2.46-git1.8.3-zip6.00"
+    ]
+   },
+   {
+    "name": "command",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "shell4.2.46-git1.8.3-zip6.00",
+   "command": "",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20018.action",
+  "uuid": "20018",
+  "name": "上传软件包到软件发布库",
+  "description": "上传软件包到软件发布库。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_0038.html)",
+  "tags": [
+   "file",
+   "upload",
+   "release",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "上传软件包"
+  ],
+  "parameters": [
+   {
+    "name": "file",
+    "label": "构建包路径",
+    "required": true
+   },
+   {
+    "name": "buildVersion",
+    "label": "发布版本号",
+    "required": false
+   },
+   {
+    "name": "name",
+    "label": "包名",
+    "required": false
+   },
+   {
+    "name": "customUploadPath",
+    "label": "自定义上传目录",
+    "required": false
+   },
+   {
+    "name": "remainOriginPath",
+    "label": "制品存储方式",
+    "required": true,
+    "default": "FLAT"
+   },
+   {
+    "name": "uploadTool",
+    "label": "",
+    "required": false
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "shell4.2.46-git1.8.3-zip6.00",
+   "file": "build/*",
+   "buildVersion": "",
+   "name": "",
+   "uploadTool": "",
+   "customUploadPath": "",
+   "remainOriginPath": "FLAT",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20022.action",
+  "uuid": "20022",
+  "name": "上传软件包到软件发布库(Windows环境)",
+  "description": "上传软件包到软件发布库(Windows环境)。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_0038.html)",
+  "tags": [
+   "file",
+   "upload",
+   "release",
+   "windows",
+   "x86-64"
+  ],
+  "execution": [
+   "上传软件包"
+  ],
+  "parameters": [
+   {
+    "name": "file",
+    "label": "构建包路径",
+    "required": true
+   },
+   {
+    "name": "buildVersion",
+    "label": "发布版本号",
+    "required": false
+   },
+   {
+    "name": "name",
+    "label": "包名",
+    "required": false
+   },
+   {
+    "name": "groupId",
+    "label": "groupId",
+    "required": false
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "shell4.2.46-git1.8.3-zip6.00",
+   "file": "build/*",
+   "buildVersion": "",
+   "name": "",
+   "groupId": "",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20026.action",
+  "uuid": "20026",
+  "name": "Go语言构建",
+  "description": "使用Go语言环境构建。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_0012.html)",
+  "tags": [
+   "build",
+   "golang",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "go语言构建"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "go-1.10.3",
+    "select": [
+     "go-1.10.3",
+     "go-1.11.6",
+     "go-1.12.1",
+     "go-1.13.1",
+     "go-1.14",
+     "go-1.15",
+     "go-1.16",
+     "go-1.17",
+     "go-1.18",
+     "go-1.19",
+     "go-1.20",
+     "go-1.21",
+     "go-1.22",
+     "go-1.23",
+     "go-1.26"
+    ]
+   },
+   {
+    "name": "command",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "go-1.10.3",
+   "command": "go build ./...",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20028.action",
+  "uuid": "20028",
+  "name": "使用SWR公共镜像",
+  "description": "使用SWR公共镜像。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_00142.html)",
+  "tags": [
+   "build",
+   "docker",
+   "swr",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "使用SWR公共镜像构建"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "镜像地址",
+    "required": true
+   },
+   {
+    "name": "command",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "",
+   "command": "",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20032.action",
+  "uuid": "20032",
+  "name": "Android构建",
+  "description": "使用Android构建系统构建APK，Android SDK版本已更新至：<font color=red>Build Tools 34.0.0 RC3、SDK Platforms 34</font>。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_1009.html)",
+  "tags": [
+   "build",
+   "android",
+   "apk",
+   "linux",
+   "x86-64"
+  ],
+  "execution": [
+   "Gradle environment initialization",
+   "gradle构建"
+  ],
+  "parameters": [
+   {
+    "name": "gradle",
+    "label": "Gradle",
+    "required": true,
+    "default": "4.8",
+    "select": [
+     "4.8",
+     "8.10.2",
+     "8.2.1",
+     "8.0",
+     "7.3",
+     "7.2",
+     "7.1",
+     "7.0",
+     "6.9",
+     "6.8",
+     "6.7",
+     "6.6",
+     "6.5",
+     "6.4",
+     "6.3",
+     "6.2",
+     "6.1",
+     "6.0",
+     "5.6",
+     "5.5",
+     "5.4",
+     "5.3",
+     "5.2",
+     "5.1",
+     "5.0",
+     "4.9",
+     "4.8",
+     "4.7",
+     "4.6",
+     "4.5",
+     "4.4",
+     "4.3",
+     "4.2",
+     "4.1",
+     "3.3",
+     "2.14.1",
+     "2.13"
+    ]
+   },
+   {
+    "name": "jdk",
+    "label": "JDK",
+    "required": true,
+    "default": "1.8",
+    "select": [
+     "17",
+     "16",
+     "15",
+     "14",
+     "13",
+     "12",
+     "11",
+     "10",
+     "1.9",
+     "1.8",
+     "1.7"
+    ]
+   },
+   {
+    "name": "ndk",
+    "label": "NDK",
+    "required": true,
+    "default": "undefind",
+    "select": [
+     "undefind",
+     "16",
+     "17",
+     "18",
+     "19",
+     "20",
+     "21",
+     "22",
+     "23",
+     "25"
+    ]
+   },
+   {
+    "name": "command1",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "command2",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "command",
+    "label": "命令",
+    "required": false
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "gradle": "gradle",
+   "jdk": "openjdk17",
+   "ndk": "ndk",
+   "command": "gradle assembleDebug",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20035.action",
+  "uuid": "20035",
+  "name": "执行Docker命令",
+  "description": "在Docker容器里面使用docker命令。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_1000.html)",
+  "tags": [
+   "docker",
+   "command",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "执行Docker命令"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "docker18.03",
+    "select": [
+     "docker18.03",
+     "docker20.10",
+     "docker29.10"
+    ]
+   },
+   {
+    "name": "dockerCommand",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "docker18.03",
+   "dockerCommand": "",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20037.action",
+  "uuid": "20037",
+  "name": "PHP构建",
+  "description": "安装了php运行环境和composer工具，可以为申明项目所依赖的php代码库提供安装和打包环境。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_01_0012.html)",
+  "tags": [
+   "build",
+   "php",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "php构建"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "php7.3.3",
+    "select": [
+     "php8.0.30",
+     "php7.3.3",
+     "php5.6.40",
+     "php7.4.33",
+     "php8.2",
+     "php8.4"
+    ]
+   },
+   {
+    "name": "command",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "php7.3.3",
+   "command": "composer install",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20043.action",
+  "uuid": "20043",
+  "name": "Maven构建",
+  "description": "使用Apache Maven构建Java项目。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_00051.html)",
+  "tags": [
+   "build",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "preMaven",
+   "maven构建",
+   "postMaven"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "maven3.5.3-jdk8-open",
+    "select": [
+     "maven3.5.3-jdk8-open",
+     "maven3.5.3-jdk7",
+     "maven3.6.1-jdk10",
+     "maven3.6.3-jdk11",
+     "maven3.6.3-jdk17",
+     "maven3.8.5-jdk17",
+     "maven3.9.5-jdk17",
+     "maven3.9.5-jdk21",
+     "maven3.9.9-jdk8-open"
+    ]
+   },
+   {
+    "name": "settingMode",
+    "label": "自动生成setting文件并配置依赖仓库",
+    "required": true,
+    "default": "auto"
+   },
+   {
+    "name": "userPublicRepositories",
+    "label": "公有依赖仓库"
+   },
+   {
+    "name": "userPrivateRepositories",
+    "label": "私有依赖仓库"
+   },
+   {
+    "name": "pomMode",
+    "label": "",
+    "required": true,
+    "default": "no"
+   },
+   {
+    "name": "releaseArtifact",
+    "label": "release仓库",
+    "required": false,
+    "default": "",
+    "select": [
+     ""
+    ]
+   },
+   {
+    "name": "snapshotArtifact",
+    "label": "snapshot仓库",
+    "required": false,
+    "default": "",
+    "select": [
+     ""
+    ]
+   },
+   {
+    "name": "deal",
+    "label": "是否处理单元测试结果",
+    "required": true,
+    "default": "notDeal"
+   },
+   {
+    "name": "ignoreTest",
+    "label": "是否忽略用例失败",
+    "required": true,
+    "default": false
+   },
+   {
+    "name": "file",
+    "label": "单元测试结果文件",
+    "required": true
+   },
+   {
+    "name": "junitCoverageSwitch",
+    "label": "是否处理单元测试覆盖率结果",
+    "required": true,
+    "default": false
+   },
+   {
+    "name": "coverageReportPath",
+    "label": "单元测试覆盖率报告路径",
+    "required": true
+   },
+   {
+    "name": "cacheOption",
+    "label": "依赖包缓存",
+    "required": true,
+    "default": "cached"
+   },
+   {
+    "name": "command",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "doCheck",
+    "label": "开启构建分析",
+    "required": true,
+    "default": "disable"
+   },
+   {
+    "name": "dependencyProjectDir",
+    "label": "pom.xml路径",
+    "required": true
+   },
+   {
+    "name": "dependencySettings",
+    "label": "settings.xml路径",
+    "required": true
+   },
+   {
+    "name": "dependencyCheckParam",
+    "label": "参数"
+   },
+   {
+    "name": "junitRegionSwitch",
+    "label": "junitRegionSwitch"
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "maven3.5.3-jdk8-open",
+   "command": "mvn package -DskipTests",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20045.action",
+  "uuid": "20045",
+  "name": "下载发布仓库包",
+  "description": "下载发布仓库包到工作目录。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_0053.html)",
+  "tags": [
+   "file",
+   "download",
+   "release",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "下载发布仓库包"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "shell4.2.46-git1.8.3-zip6.00",
+    "select": [
+     "shell4.2.46-git1.8.3-zip6.00"
+    ]
+   },
+   {
+    "name": "fileUrl",
+    "label": "下载包地址",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "shell4.2.46-git1.8.3-zip6.00",
+   "fileUrl": "",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20057.action",
+  "uuid": "20057",
+  "name": "上传文件到OBS",
+  "description": "上传文件到OBS。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_01_0006.html)",
+  "tags": [
+   "file",
+   "upload",
+   "obs",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "obsUploader"
+  ],
+  "parameters": [
+   {
+    "name": "authorizationUser",
+    "label": "授权用户",
+    "required": true,
+    "default": "current",
+    "select": [
+     "current",
+     "other"
+    ]
+   },
+   {
+    "name": "iamEndPoint",
+    "label": "IAM账号",
+    "required": true,
+    "default": "",
+    "select": [
+     ""
+    ]
+   },
+   {
+    "name": "artifactSourcePath",
+    "label": "构建产物路径",
+    "required": true
+   },
+   {
+    "name": "backetName",
+    "label": "桶名",
+    "required": true
+   },
+   {
+    "name": "obsEndPoint",
+    "label": "OBS终端节点",
+    "required": false
+   },
+   {
+    "name": "objectKey",
+    "label": "OBS存储目录",
+    "required": false
+   },
+   {
+    "name": "artifactDestName",
+    "label": "OBS存储文件名",
+    "required": false
+   },
+   {
+    "name": "uploadDirectory",
+    "label": "是否上传文件夹",
+    "required": false,
+    "default": false
+   },
+   {
+    "name": "rootDirectory",
+    "label": "忽略文件夹路径",
+    "required": false
+   },
+   {
+    "name": "obsHeaders",
+    "label": "OBS头域",
+    "required": false
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "authorizationUser": "",
+   "iamEndPoint": "",
+   "artifactSourcePath": "",
+   "backetName": "",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20060.action",
+  "uuid": "20060",
+  "name": "GFortran构建",
+  "description": "安装了fortran编译环境gcc，cmake，gfortran和openmpi等工具，支持编译单个fortran源码或者整个fortran项目。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_0101.html)",
+  "tags": [
+   "build",
+   "fortran",
+   "linux",
+   "x86-64"
+  ],
+  "execution": [
+   "GFortran构建"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "gfortran-conda-gcc-cmake",
+    "select": [
+     "gfortran-conda-gcc-cmake"
+    ]
+   },
+   {
+    "name": "command",
+    "label": "命令",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "gfortran-conda-gcc-cmake",
+   "command": "make",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20061.action",
+  "uuid": "20061",
+  "name": "下载文件管理的文件",
+  "description": "从文件管理下载文件到工作目录。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_01_0013.html)",
+  "tags": [
+   "file",
+   "download",
+   "filemanage",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "下载文件管理的文件"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "shell4.2.46-git1.8.3-zip6.00",
+    "select": [
+     "shell4.2.46-git1.8.3-zip6.00"
+    ]
+   },
+   {
+    "name": "filename",
+    "label": "下载文件",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "shell4.2.46-git1.8.3-zip6.00",
+   "filename": "",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20063.action",
+  "uuid": "20063",
+  "name": "从OBS下载文件",
+  "description": "从OBS下载文件到构建工作目录。[查看操作指南](https://support.huaweicloud.com/intl/zh-cn/usermanual-codeci/codeci_02_0006.html)",
+  "tags": [
+   "file",
+   "download",
+   "obs",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "obsDownloader"
+  ],
+  "parameters": [
+   {
+    "name": "authorizationUser",
+    "label": "授权用户",
+    "required": true,
+    "default": "current",
+    "select": [
+     "current",
+     "other"
+    ]
+   },
+   {
+    "name": "iamEndPoint",
+    "label": "IAM账号",
+    "required": true,
+    "default": "",
+    "select": [
+     ""
+    ]
+   },
+   {
+    "name": "obsEndPoint",
+    "label": "OBS终端节点",
+    "required": false
+   },
+   {
+    "name": "bucketName",
+    "label": "OBS桶名",
+    "required": true
+   },
+   {
+    "name": "objectKey",
+    "label": "OBS桶内文件路径",
+    "required": true
+   },
+   {
+    "name": "downloadPath",
+    "label": "本地文件所在路径",
+    "required": false
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "authorizationUser": "",
+   "iamEndPoint": "",
+   "bucketName": "",
+   "objectKey": "",
+   "preCondition": "SUCCESS"
+  }
+ },
+ {
+  "module_id": "devcloud2018.codeci_action_20071.action",
+  "uuid": "20071",
+  "name": "单元测试报告",
+  "description": "处理生成的单元测试报告。[查看操作指南](https://support.huaweicloud.com/usermanual-codeci/codeci_ug_0105.html)",
+  "tags": [
+   "test",
+   "unit",
+   "report",
+   "linux",
+   "x86-64",
+   "arm"
+  ],
+  "execution": [
+   "postMaven"
+  ],
+  "parameters": [
+   {
+    "name": "image",
+    "label": "工具版本",
+    "required": true,
+    "default": "shell4.2.46-git1.8.3-zip6.00",
+    "select": [
+     "shell4.2.46-git1.8.3-zip6.00"
+    ]
+   },
+   {
+    "name": "unit_type",
+    "label": "测试报告类型",
+    "required": true,
+    "default": "junit",
+    "select": [
+     "junit"
+    ]
+   },
+   {
+    "name": "file",
+    "label": "测试报告路径",
+    "required": true
+   },
+   {
+    "name": "junitCoverageSwitch",
+    "label": "发布覆盖率报告",
+    "required": false,
+    "default": false
+   },
+   {
+    "name": "coverageFormat",
+    "label": "覆盖率报告格式",
+    "required": true,
+    "default": "jacoco",
+    "select": [
+     "jacoco",
+     "cobertura"
+    ]
+   },
+   {
+    "name": "coverageReportPath",
+    "label": "覆盖率报告路径",
+    "required": true
+   },
+   {
+    "name": "preCondition",
+    "label": "失败后是否继续运行",
+    "required": true,
+    "default": "SUCCESS"
+   }
+  ],
+  "default_properties": {
+   "image": "shell4.2.46-git1.8.3-zip6.00",
+   "unit_type": "junit",
+   "file": "**/TEST-*.xml",
+   "coverageFormat": "",
+   "preCondition": "SUCCESS"
+  }
+ }
+]

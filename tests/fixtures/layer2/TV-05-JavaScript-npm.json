@@ -1,0 +1,29 @@
+{
+  "case_id": "TV-05",
+  "name": "JavaScript/npm",
+  "input": {
+    "language": "JavaScript/npm"
+  },
+  "expected": {
+    "steps_count": 2,
+    "steps": [
+      {
+        "module_id": "devcloud2018.codeci_action_20014.action",
+        "name": "Npm构建",
+        "properties_contains": {
+          "image": "nodejs12.7.0",
+          "preCondition": "SUCCESS"
+        }
+      },
+      {
+        "module_id": "devcloud2018.codeci_action_20018.action",
+        "name": "上传软件包到软件发布库",
+        "properties_contains": {
+          "image": "shell4.2.46-git1.8.3-zip6.00",
+          "preCondition": "SUCCESS"
+        }
+      }
+    ]
+  },
+  "scene": "npm"
+}
