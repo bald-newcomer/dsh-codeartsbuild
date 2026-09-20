@@ -1,16 +1,18 @@
 # CodeArtsBuild 插件 — 使用指南
 
 > **文档编号**: CAB-USAGE-001  
-> **版本**: v0.1.0（草案）  
-> **日期**: 2026-09-17  
+> **版本**: v0.3.0（迭代由用户决定）  
+> **日期**: 2026-09-20  
 > **状态**: 待评审  
-> **前置依赖**: 架构设计 v0.7.4（`docs/architecture/architecture.md`）、接口契约 v0.4.5（`docs/api/api-contract.md`）
+> **前置依赖**: 架构设计（`docs/architecture/architecture.md`）、接口契约（`docs/api/api-contract.md`）
 
 ## 修订记录
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v0.1.0 | 2026-09-17 | 初始使用指南 |
+| v0.2.0 | 2026-09-18 | 工作流一去 `list_projects`（projectId 由用户/会话上下文提供，架构 §4.3）；对齐契约 v0.5.2 |
+| v0.3.0 | 2026-09-20 | **承载反转（KooCLI → 自建 HTTP）**：§1 前置依赖/凭据配置改 `CAB_AK`/`CAB_SK` 环境变量或 hcloud config；§4 配置项增 credentialSource/proxyUrl；§5 FAQ 改 HTTP 签名错误排查 |
 
 ---
 
@@ -22,20 +24,22 @@
 |------|------|------|
 | Node.js | 20+（dsh 要求 22.19+） | dsh 运行环境 |
 | dsh | 0.1.1+ | DeepSeek Harness |
-| KooCLI（hcloud） | v7.2.12（实测） | 华为云 API 承载，AK/SK 管理 |
+| 凭据 | AK/SK（环境变量 `CAB_AK`/`CAB_SK` 或 hcloud config） | 华为云 API 自建 HTTP 承载（AK/SK 签名），见 auth.md |
 
-### 1.2 安装 KooCLI 并配置凭据
+### 1.2 配置凭据
 
 ```bash
-# 安装 KooCLI（详见 docs/operations/auth.md）
-# 配置 AK/SK 与区域（一次性）
-hcloud configure set --cli-access-key=<AK> --cli-secret-key=<SK> --cli-region=cn-north-4
+# 方式一：环境变量（CI/容器友好，推荐）
+export CAB_AK=<AK>
+export CAB_SK=<SK>
+export CAB_REGION=cn-north-4
 
-# 验证
-hcloud CodeArtsBuild ShowRelatedProject --cli-region=cn-north-4
+# 方式二：hcloud config 兼容（已有 hcloud configure 用户）
+hcloud configure set --cli-access-key=<AK> --cli-secret-key=<SK> --cli-region=cn-north-4
+# 注：hcloud config 若为加密存储（AK/SK 密文），改用方式一环境变量
 ```
 
-> AK/SK 由 KooCLI 托管，插件不接触凭据。
+> 凭据源由插件 config `credentialSource` 选择（`env` / `hcloud-config`，默认自动）；AK/SK 仅在进程内签名使用，插件不落盘、不入日志（详见 auth.md）。
 
 ### 1.3 装配插件（dsh）
 
@@ -93,15 +97,15 @@ dsh web   # 启动
 
 ```
 1. repo_build(repoPath=./)          → 本地编译成功，产物 + recommended_steps
-2. list_projects                    → 选择 projectId（或用户直接提供）
-3. create_job(projectId, jobName, arch, steps=recommended_steps)
+2. create_job(projectId, jobName, arch, steps=recommended_steps)
                                     → 云端任务创建成功，返回 job_id
-4. run_job(jobId)                   → 触发构建，返回 build_no
-5. wait_build(jobId, buildNo)       → 轮询至终态 SUCCESS
-6. list_artifacts(jobId, buildNo)   → 产物清单（下载 + 页面双链接）
+                                    （projectId 由用户提供或取会话上下文，无需 list_projects）
+3. run_job(jobId)                   → 触发构建，返回 build_no
+4. wait_build(jobId, buildNo)       → 轮询至终态 SUCCESS
+5. list_artifacts(jobId, buildNo)   → 产物清单（console_url 页面跳转链接）
 ```
 
-**输出**：编译命令、产物信息、云端构建状态、下载/页面链接。
+**输出**：编译命令、产物信息、云端构建状态、页面跳转链接。
 
 ### 3.2 仅本地构建（验证能否编译）
 
@@ -142,7 +146,9 @@ get_log(recordId)                           → 拉取并清洗日志
 
 | 配置 | 位置 | 说明 |
 |------|------|------|
-| region | 插件 config / `CODEARTS_BUILD_REGION` | 透传 hcloud `--cli-region` |
+| credentialSource | 插件 config（`env`/`hcloud-config`） | 凭据源选择（默认：有 CAB_AK 用 env，否则 hcloud-config） |
+| region | 插件 config / `CAB_REGION` | 云服务区域（默认 cn-north-4，决定 endpoint） |
+| proxyUrl | 插件 config / `HTTPS_PROXY`/`HTTP_PROXY` | 内网代理（访问华为云公网 API 需时） |
 | projectId | 会话级（不固定配置） | `CODEARTS_BUILD_PROJECT_ID` 仅作可选默认 |
 | consoleBaseUrl | `CODEARTS_CONSOLE_BASE_URL` | 拼装产物页面查询链接 |
 | 轮询参数 | `wait_build` 入参 | intervalMs(默认10s)/timeoutMs(默认30min)/maxBackoffMs(默认30s) |
@@ -153,8 +159,9 @@ get_log(recordId)                           → 拉取并清洗日志
 
 | 问题 | 处理 |
 |------|------|
-| hcloud 未安装 | 见 docs/operations/auth.md §2 安装指引 |
-| 认证失败 | 检查 `hcloud configure show`；KooCLI 自动处理 Token |
+| 凭据未配置 | 设置 `CAB_AK`/`CAB_SK`（或配置 hcloud config），见 auth.md §2 |
+| 认证失败 401 | AK/SK 错误/失效，或 hcloud config 为密文存储（改用环境变量），见 auth.md §4 |
+| 网络不通 | 检查代理（`HTTPS_PROXY` 或 config proxyUrl）；Windows 需 `NODE_TLS_REJECT_UNAUTHORIZED=0`（schannel 证书吊销检查） |
 | 找不到项目/任务 | `list_projects` / `list_jobs` 确认 ID；检查 region 是否正确 |
 | 构建失败 | 走 G2 诊断流程（get_log → 分析 → 修复闭环） |
 | 产物为空 | 检查构建步骤是否产出到标准目录；确认 buildNo 对应成功构建 |

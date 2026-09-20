@@ -55,20 +55,22 @@ dsh-codeartsbuild/
 
 ## 文档索引
 
+> 版本号标注于各文档头（迭代由用户决定，日常编辑不自动升版）。版本演进历史见 `docs/changelog.md`。
+
 | 文档 | 路径 | 状态 | 说明 |
 |------|------|------|------|
-| 架构设计 | `docs/architecture/architecture.md` | ✅ v0.7.4 | 业务抽象、dsh 形态、双 Provider、KooCLI 实测、修复闭环 |
-| 工具接口契约 | `docs/api/api-contract.md` | ✅ v0.4.5 | 16 原子工具、参数/返回/错误码、工作流编排、禁用 v3 旧版接口 |
-| 认证与凭据管理 | `docs/operations/auth.md` | ✅ v0.1 | KooCLI 安装配置、AK/SK 管理、Token 自动处理 |
-| 代码仓构建流程 | `docs/design/repo-analyzer.md` | ✅ v0.2.2 | 单一 `repo_build`、异常升级、留档、recommended_steps 映射 |
-| 日志清洗器规范 | `docs/design/log-cleaner.md` | ✅ v0.2 | 基于真实日志重设计：job_key/资源池/步骤/错误码 |
-| 使用指南 | `docs/operations/usage.md` | ✅ v0.1 | 安装、配置、典型流程示例 |
-| 错误码与故障排查 | `docs/operations/errors.md` | ✅ v0.1 | 错误码表、日志清洗分类、故障排查 |
-| 需求说明（PRD） | `docs/prd.md` | ✅ v0.1 | 用户故事、功能范围、非功能需求 |
-| 产物规范 | `docs/operations/artifacts.md` | ✅ v0.1 | 产物双链接、类型、下载规范 |
-| 风险与合规 | `docs/operations/risk-compliance.md` | ✅ v0.1 | 安全设计、权限最小化、审计 |
-| 变更记录 | `docs/changelog.md` | ✅ v0.1 | 版本演进、变更历史汇总 |
-| Skill 定义 | `skills/codeartsbuild/SKILL.md` | ✅ v0.4.3 | 工具清单、强制规约（数据来源映射）、建议操作路径 |
+| 架构设计 | `docs/architecture/architecture.md` | ✅ | 业务抽象、dsh 形态、双 Provider、KooCLI 实测、修复闭环、v3/v4 禁用 |
+| 工具接口契约 | `docs/api/api-contract.md` | ✅ | 16 原子工具、参数/返回/错误码、工作流编排、禁用 v3/v4 旧版接口 |
+| 认证与凭据管理 | `docs/operations/auth.md` | ✅ | KooCLI 安装配置、AK/SK 管理、Token 自动处理 |
+| 代码仓构建流程 | `docs/design/repo-analyzer.md` | ✅ | 单一 `repo_build`、异常升级、留档、recommended_steps 映射 |
+| 日志清洗器规范 | `docs/design/log-cleaner.md` | ✅ | 基于真实日志重设计：job_key/资源池/步骤/错误码 + ZIP 解压 |
+| 使用指南 | `docs/operations/usage.md` | ✅ | 安装、配置、典型流程示例 |
+| 错误码与故障排查 | `docs/operations/errors.md` | ✅ | 错误码表、日志清洗分类、故障排查 |
+| 需求说明（PRD） | `docs/prd.md` | ✅ | 用户故事、功能范围、非功能需求 |
+| 产物规范 | `docs/operations/artifacts.md` | ✅ | 产物类型（介质）、页面跳转链接、下载规范（M2） |
+| 风险与合规 | `docs/operations/risk-compliance.md` | ✅ | 安全设计、权限最小化、审计 |
+| 变更记录 | `docs/changelog.md` | ✅ | 版本演进、变更历史汇总（唯一版本源，迭代由用户决定） |
+| Skill 定义 | `skills/codeartsbuild/SKILL.md` | ✅ | 工具清单、强制规约（数据来源映射）、建议操作路径 |
 
 ## 参考
 

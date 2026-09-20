@@ -1,10 +1,10 @@
 # CodeArtsBuild 构建插件 — 架构设计文档
 
 > **文档编号**: CAB-ARCH-001  
-> **版本**: v0.7.5（产物统一结构体）  
-> **日期**: 2026-09-17  
+> **版本**: v0.8.0（迭代由用户决定）  
+> **日期**: 2026-09-20  
 > **状态**: 待评审  
-> **变更**: v0.7.4→v0.7.5 — 产物模型统一结构体（type 按介质 obs/image/artifact/local + record_id + language）；移除 download_url（需 token），当前仅 console_url 跳转查看，下载 M2 规划
+> **变更**: v0.7.9→v0.8.0 — 华为云调用承载从**华为云 SDK**反转为**自建 HTTP（AK/SK 签名）**（评审决策 2026-09-20）：仅保留 `huaweicloud-sdk-core` 签名库，业务请求自建 HTTP 构造；详见 §3.3.1 决策反转
 
 ## 修订记录
 
@@ -22,6 +22,11 @@
 | v0.7.3 | 2026-09-17 | **projectId 会话级传递（待办 #7）**：§4.3 新增会话上下文缓存机制（一次填写/自动复用/优先级链） |
 | v0.7.4 | 2026-09-17 | **local-build 分包上移（待办 #9）**：`local-build/` 由 infra/ 上移至 providers/（repo_build 为场景 B 核心能力，与云侧 Provider 对等） |
 | v0.7.5 | 2026-09-17 | **产物统一结构体**：BuildArtifact 重构（type 按介质 + record_id + language）；移除 download_url，当前仅 console_url 跳转查看 |
+| v0.7.6 | 2026-09-18 | **openapi.yaml 输入输出对齐**：契约 v0.4.8（create_job arch 枚举/module_id 全限定名/parameters 双层、run_job 响应、delete HTTP 方法、list_records 分页、get_status workflow.status、list_artifacts package_infos/image_infos、list_templates result.items 等）；待确认项 §12 同步 |
+| v0.7.7 | 2026-09-18 | **KooCLI 实调用确认（待办 #1 完成）**：契约 v0.4.9——record_id 对应、ListRecords 36 位 UUID、ExecuteJob 分支、DeleteTheJob HTTP DELETE、StopTheJob body、状态枚举冲突（STARTED/ABORTED/red/blue）、CreateNewJob steps 必填、日志 ZIP；§12 新增 #11 |
+| v0.7.8 | 2026-09-18 | **v4 禁用 + 一致性修复**：接口禁用规则扩至 **v3/v4 一律禁用（仅 v1 推荐）**；get_status 落定 `ShowJobBuildRecordDetail`（替换待定关闭）；目录树补 `template-assembler.ts`；§4.6 代码仓分析器实现路径改 `providers/local-build/`（对齐 v0.7.4 local-build 上移）；契约 v0.5.2 同步 |
+| v0.7.9 | 2026-09-19 | **用户故事引用化**：§2.1 用户故事表改为引用 `docs/prd.md` §2（消除双维护，PRD 为准） |
+| v0.8.0 | 2026-09-20 | **承载反转：SDK → 自建 HTTP（AK/SK 签名）**：华为云 SDK 业务客户端不可信（请求/响应处理黑盒、字段丢失等），改为基于接口契约自行构造 HTTP 请求（`fetch` + `AKSKSigner` 签名）；仅保留 `huaweicloud-sdk-core` 的签名库；新增 `infra/http-client.ts`，删除 `sdk-proxy-patch.ts`；region→endpoint 映射表内嵌（取消 SDK Region 依赖） |
 
 ---
 
@@ -72,22 +77,24 @@ Huawei Cloud **CodeArts Build（编译构建）** 是云上编译构建平台，
 
 ### 2.1 用户故事
 
+> 用户故事全量见 `docs/prd.md` §2（14 条，含 ID/角色/故事/优先级），本处为架构引用的要点速览，**以 PRD 为准**：
+
 | ID | 角色 | 故事 | 优先级 |
 |----|------|------|--------|
-| US-1 | 开发者 | 作为开发者，我希望列出我可见的 CodeArts 项目 | P0 |
-| US-2 | 开发者 | 作为开发者，我希望按项目列出所有构建任务及最近状态 | P0 |
-| US-3 | 开发者 | 作为开发者，我希望查看某个构建任务的完整配置 | P1 |
-| US-4 | 开发者 | **作为开发者，我希望基于当前代码仓自动创建构建任务并执行成功** | P0 |
-| US-5 | 开发者 | 作为开发者，我希望修改已存在的构建任务配置 | P2 |
-| US-6 | 开发者 | 作为开发者，我希望删除废弃的构建任务 | P2 |
-| US-7 | 开发者 | 作为开发者，我希望触发构建任务执行并指定分支/参数 | P0 |
-| US-8 | 开发者 | 作为开发者，我希望停止误触发的构建 | P1 |
-| US-9 | 开发者 | 作为开发者，我希望查询构建状态并等待其完成 | P0 |
-| US-10 | 开发者 | 作为开发者，我希望查看构建历史记录 | P1 |
-| US-11 | 开发者 | 作为开发者，我希望获取构建产物清单（按介质分类）与页面跳转链接 | P0 |
-| US-12 | 开发者 | 作为开发者，我希望看到可用的构建步骤模板 | P1 |
-| US-13 | 开发者 | **作为开发者，构建失败时我希望自动获取日志并分析失败原因** | P0 |
-| US-14 | 开发者 | 作为开发者，我希望自动检测当前代码仓的技术栈（Maven/Npm/Gradle 等） | P0 |
+| US-1 | 开发者 | 列出我可见的 CodeArts 项目 | P0 |
+| US-2 | 开发者 | 按项目列出所有构建任务及最近状态 | P0 |
+| US-3 | 开发者 | 查看某个构建任务的完整配置 | P1 |
+| US-4 | 开发者 | **基于当前代码仓自动创建构建任务并执行成功** | P0 |
+| US-5 | 开发者 | 修改已存在的构建任务配置 | P2 |
+| US-6 | 开发者 | 删除废弃的构建任务 | P2 |
+| US-7 | 开发者 | 触发构建任务执行并指定分支/参数 | P0 |
+| US-8 | 开发者 | 停止误触发的构建 | P1 |
+| US-9 | 开发者 | 查询构建状态并等待其完成 | P0 |
+| US-10 | 开发者 | 查看构建历史记录 | P1 |
+| US-11 | 开发者 | 获取构建产物清单（按介质分类）与页面跳转链接 | P0 |
+| US-12 | 开发者 | 看到可用的构建步骤模板 | P1 |
+| US-13 | 开发者 | **构建失败时自动获取日志并分析失败原因** | P0 |
+| US-14 | 开发者 | 自动检测当前代码仓的技术栈（Maven/Npm/Gradle 等） | P0 |
 
 ### 2.2 业务场景抽象
 
@@ -110,8 +117,8 @@ Huawei Cloud **CodeArts Build（编译构建）** 是云上编译构建平台，
 
 | 类别 | 需求 | 指标 |
 |------|------|------|
-| 安全 | 凭据不外泄 | AK/SK 由 KooCLI 管理，插件不接触；不出现在工具结果中 |
-| 安全 | Token 管理 | 由 KooCLI 自动获取/刷新，插件不自行实现 |
+| 安全 | 凭据不外泄 | AK/SK 经凭据注入抽象提供（env / hcloud config），插件业务代码不接触明文，仅进程内签名；不出现在工具结果中 |
+| 安全 | Token 管理 | AK/SK 签名无 token 依赖（不调 IAM），无获取/刷新负担 |
 | 可靠 | 网络失败重试 | 幂等命令支持重试，限 3 次 |
 | 性能 | 列表接口分页 | 默认 20 条/页，上限 100 |
 | 性能 | 大日志管控 | 日志仅 error 分析时获取，按需截断 |
@@ -176,7 +183,7 @@ flowchart TB
 | **Provider 可插拔** | CodeArtsBuild 是第一个 Provider，新增后端仅需实现 Provider 接口 |
 | **本地代码仓感知** | 分析本地工作区文件自动推断技术栈和构建配置（详见 `repo-analyzer.md`） |
 | **日志清洗→LLM 分析** | 插件负责拉取日志并结构化建模，根因分析交给 LLM（详见 `log-cleaner.md`） |
-| **KooCLI 统一承载** | 所有华为云 OpenAPI 调用（含 Token）经 KooCLI，插件不接触凭据 |
+| **华为云调用承载** | CodeArtsBuild OpenAPI 调用经**自建 HTTP 客户端**（基于接口契约自行构造请求 + AK/SK 签名）承载，凭据经**凭据注入抽象**注入（保留"插件不接触明文"承诺）；详见 §3.3 技术选型 |
 
 ### 3.3 技术选型
 
@@ -186,7 +193,30 @@ flowchart TB
 | **Harness 插件** | **`@deepseek-ai/dsh` 插件（bundle）体系** | **唯一终端形态：`apply(ctx)` + `ctx.tools.register(defineTool(...))` + `cordis.patch.yml`，深度结合 dsh 的工具/技能/会话能力** |
 | 工具 schema | `@deepseek-ai/schemastery` | dsh 标准 schema 库（z），与 defineTool 原生兼容 |
 | 参数校验 | `@deepseek-ai/schemastery` | 与 dsh 工具注册一体化，避免 Zod 双轨 |
-| **华为云调用** | **KooCLI（`hcloud`）v7.2.12** | **统一承载 CodeArtsBuild 及所有华为云 OpenAPI 调用，含 Token 获取；操作列表已实测（见 §4.8）** |
+| **华为云调用承载** | **自建 HTTP 客户端**（`fetch` + `AKSKSigner` 签名，基于 api-contract.md 接口契约自行构造请求/解析响应） | 见下"华为云调用承载方案对比"——架构评审决策（2026-09-20）：**SDK 业务客户端不可信**，改为自建 HTTP；仅保留 `@huaweicloud/huaweicloud-sdk-core` 签名库 |
+| 凭据注入 | 凭据提供者接口（`CredentialProvider`） | 从 hcloud config / 环境变量 / 宿主注入读取 AK/SK，**进程内签名、不落盘明文**——保留"插件不接触凭据明文"承诺 |
+| ShowNewOutput 例外 | 手动 HTTP（仅 `list_artifacts`） | 该端点服务端接口本身限制（SDK 与 KooCLI 均未封装）；自建 HTTP 承载后与普通工具同构，仅差一个未进白名单的 URL |
+
+#### 3.3.1 华为云调用承载方案对比（架构评审决策 2026-09-20）
+
+> **决策（2026-09-20）**：从华为云 SDK 业务客户端切换为**自建 HTTP 调用**（AK/SK 签名）。背景：SDK 业务客户端（`huaweicloud-sdk-codeartsbuild`）不可信——请求/响应处理黑盒（模型类字段不完整：`CreateBuildJobRequestBody` 缺 source_code/agency_urn/description）、内部行为无法控制（iam client 代理丢失需 monkey-patch）、类型强制转换掩盖真实请求结构。自建 HTTP 后请求体/响应解析完全透明、可控，契约即实现。
+
+| 维度 | 华为云 SDK（v0.7.9 方案） | 自建 HTTP（新方案 ✅ 已决策） |
+|------|---------------------------|------------------------------|
+| 请求/响应透明性 | ❌ 黑盒：模型类序列化不可控，字段丢失难排查 | ✅ 完全透明：请求体/响应解析由插件代码直接构造，契约即实现 |
+| 字段完整性 | ❌ `CreateBuildJobRequestBody` 缺 source_code/agency_urn/description | ✅ 全部契约字段按 api-contract.md 直传（含低频字段） |
+| 依赖 | ⚠️ `huaweicloud-sdk-codeartsbuild` + sdk-core + uuid + moment + lodash | ✅ 仅保留 `huaweicloud-sdk-core`（AKSKSigner 签名），bundle 更小 |
+| 代理支持 | ❌ iam client 不继承代理，需 monkey-patch（sdk-proxy-patch.ts） | ✅ HTTP 层显式处理代理（Node fetch + dispatcher），无补丁 |
+| 认证 | AK/SK 签名（Signer） | AK/SK 签名（`AKSKSigner.sign()`，与 SDK 同源，无 IAM 依赖） |
+| 类型安全 | ⚠️ `(client as any)[method]()` 无方法级校验 | ✅ 请求/响应类型由插件定义，编译期校验（方法级 dispatch 表） |
+| 错误处理 | ⚠️ SDK 异常类型依赖构造名判断（脆） | ✅ 直接解析 HTTP 状态码 + 响应体，稳定可控 |
+| 测试策略 | ⚠️ mock SDK 客户端 | ✅ mock fetch 层，可录制回放 |
+| M4 多 Provider 演进 | ✅ 各后端官方 SDK | ⚠️ 各后端需自建 HTTP（接口文档驱动，但可控） |
+| 已实测资产 | ⚠️ 需对 SDK 重新实测对齐 | ✅ 契约 §8 KooCLI 实测结果直接复用（HTTP 与 KooCLI 同走 OpenAPI） |
+
+> **决策依据**：SDK 业务客户端的黑盒行为（字段丢失、代理缺陷、类型强制转换）直接损害契约驱动原则；自建 HTTP 后请求/响应完全透明，契约即实现，低频字段不再丢失。签名算法与 SDK 同源（`AKSKSigner`），认证可靠性不变，且绕开 IAM token 依赖。
+>
+> **代价**：推翻 v0.7.9 SDK 决策；`sdk-client.ts` 需重构为 `http-client.ts`；`credential-provider.ts` 返回 AK/SK 而非 BasicCredentials；`sdk-proxy-patch.ts` 删除；region→endpoint 映射表内嵌（不再依赖 SDK Region 类）；已写 create-job.ts 的 SDK 调用段需重构。
 
 ---
 
@@ -215,7 +245,8 @@ dsh-codeartsbuild/                      # dsh 插件（bundle），唯一终端�
 │   │   ├── codeartsbuild/              # CodeArtsBuild Provider（场景 A/C/D/E/F/G 云侧）
 │   │   │   ├── index.ts                # Provider 实现（云侧场景）
 │   │   │   ├── client.ts               # 业务客户端（基于 KooCLI 调用）
-│   │   │   └── operation-map.ts        # 工具→KooCLI 操作映射（v1/v4 白名单）
+│   │   │   ├── operation-map.ts        # 工具→KooCLI 操作映射（v1 白名单）
+│   │   │   └── template-assembler.ts   # create_job 模板化组装（stepsPlan/language → steps）
 │   │   ├── local-build/                # 本地构建 Provider（场景 B，待办 #9 上移评审结论）
 │   │   │   ├── index.ts                # 聚合导出 repo_build
 │   │   │   ├── probe.ts                # 内部：仓库类型探测（fs 检测配置文件）
@@ -225,7 +256,9 @@ dsh-codeartsbuild/                      # dsh 插件（bundle），唯一终端�
 │   │   │   └── archive.ts              # 内部：过程留档（写 build-records/）
 │   │   └── index.ts                    # Provider 注册表（工厂）
 │   ├── infra/                          # 基础设施层（跨 Provider 复用）
-│   │   ├── koo-cli.ts                  # KooCLI 适配器（命令执行与输出解析）
+│   │   ├── http-client.ts              # 自建 HTTP 客户端封装（AK/SK 签名 + 错误映射 + 重试）
+│   │   ├── credential-provider.ts      # 凭据注入抽象（hcloud config / 环境变量）
+│   │   ├── tool-result.ts              # 工具结果工具函数（makeErrorResult/makeSuccessResult）
 │   │   └── log-cleaner.ts              # 日志清洗器（详情见 log-cleaner.md）
 │   └── index.ts                        # 模块出口（聚合导出）
 │
@@ -237,7 +270,9 @@ dsh-codeartsbuild/                      # dsh 插件（bundle），唯一终端�
     │   └── architecture.md              # 本文件
     ├── design/                          # 概要/详细设计层
     │   ├── repo-analyzer.md             # 代码仓构建流程（概要）
-    │   └── log-cleaner.md               # 日志清洗器（详细）
+    │   ├── log-cleaner.md               # 日志清洗器（详细）
+    │   ├── tool-details.md              # 16 工具详细设计（create_job 详尽）
+    │   └── step-templates.md            # Step 模板库（官方模板拆解，create_job 组装资产）
     ├── api/                             # 接口契约层
     │   └── api-contract.md              # 工具接口契约
     ├── operations/                      # 运维/用户文档层
@@ -259,7 +294,7 @@ src 按**职责边界**分为 5 个包，拆分依据如下（供评审选择/�
 | `tools/` | 工具定义 | **契约边界**：工具名称/描述/schema 是面向 LLM 的契约，与实现解耦；schema 变更不影响 Provider，便于对照 `api-contract.md` 评审 |
 | `core/` | 核心业务域 | **抽象边界**：`BuildProvider` 接口与生命周期编排与具体后端无关，是"业务抽象优先"原则的落点 |
 | `providers/` | Provider 实现 | **扩展边界**：新增后端只需新增子包实现 `BuildProvider`；**云端 + 本地双 Provider**——`codeartsbuild/`（云侧 A/C/D/E/F/G）+ `local-build/`（本地构建 B，待办 #9 评审结论：repo_build 是场景 B 核心能力，非基础设施，上移至 providers 与云侧对等） |
-| `infra/` | 基础设施 | **技术边界**：KooCLI 适配、日志清洗等跨 Provider 复用基础设施，独立便于替换（如 KooCLI 换 SDK） |
+| `infra/` | 基础设施 | **技术边界**：HTTP 承载、日志清洗等跨 Provider 复用基础设施，独立便于替换（如替换承载层实现） |
 
 **备选拆分依据**（如评审倾向其他维度，可替换上述方案）：
 
@@ -408,13 +443,13 @@ interface LogError {
 }
 ```
 
-### 4.6 代码仓分析器
+### 4.6 代码仓构建（本地构建 Provider）
 
-本地工作区扫描，**检测关键文件识别技术栈，再按语言路由到不同的编译方案**。
+**AI 自主构建流程**（v0.2 重构）：识别技术栈、选定构建命令、执行构建、收集产物、留档，均可由 AI 自主完成；工具提供能力与规约，不硬编码分析逻辑。
 
-- **职责**：输入仓库路径 → 输出语言/构建工具/推荐模板/编译路由/推荐步骤
-- **实现**：`src/infra/repo-analyzer.ts`
-- **详细设计**（检测规则表、优先级、Monorepo 处理、边界情况）：见 `docs/design/repo-analyzer.md`
+- **职责**：输入仓库路径 → 输出构建状态/编译命令/产物/推荐步骤（recommended_steps，可直接作为 create_job.steps）
+- **实现**：`src/providers/local-build/`（probe.ts 类型探测 / guidance.ts 编译指导 / build.ts 执行 / artifact.ts 产物收集 / archive.ts 留档）——v0.7.4 起 local-build 上移至 providers/，与云侧 Provider 对等
+- **详细设计**（阶段边界、异常升级、留档规约）：见 `docs/design/repo-analyzer.md`
 
 ### 4.7 日志清洗器
 
@@ -432,7 +467,7 @@ interface LogError {
 
 > 环境：KooCLI v7.2.12，`hcloud CodeArtsBuild --help` 实测。服务名 `CodeArtsBuild`。
 
-**与构建生命周期相关的核心操作**（已实测参数；⭐ = 推荐接口 v1/v4，其余为 v3 旧版禁用）：
+**与构建生命周期相关的核心操作**（已实测参数；⭐ = 推荐接口 v1，v3/v4 一律禁用）：
 
 | 场景 | KooCLI 操作 | 版本 | Method | 关键参数（必填加粗） |
 |------|-------------|------|--------|----------------------|
@@ -442,12 +477,12 @@ interface LogError {
 | 任务详情 | ⭐ `ShowJobConfig` | v1 | GET | **job_id** |
 | 创建任务 | ⭐ `CreateNewJob` | v1 | POST | **arch**, **job_name**, **project_id**, **steps.[N].module_id**, **steps.[N].name**, scms.[N].*, parameters.[N].* |
 | 更新任务 | ⭐ `UpdateNewJob` | v1 | POST | **job_id**, 与 create 同构 |
-| 删除任务 | ⭐ `DeleteTheJob` | v1 | POST | **job_id**（path） |
-| 执行构建 | ⭐ `ExecuteJob` | v1 | POST | **job_id**, parameter.[N].{name,value}?, scm.{build_commit_id, build_tag}? |
-| 停止构建 | ⭐ `StopTheJob` | v1 | POST | **job_id**（path） |
-| 运行状态 | ⭐ `ShowJobStepStatus` ⚠️待定 | v1 | GET | **job_id**（path）；返回子步骤状态较难解析，替换接口待确认（契约 §8 #7） |
+| 删除任务 | ⭐ `DeleteTheJob` | v1 | DELETE | **job_id**（path） |
+| 执行构建 | ⭐ `ExecuteJob` | v1 | POST | **job_id**, parameter.[N].{name,value}?, scm.{build_commit_id, build_tag, branch}? |
+| 停止构建 | ⭐ `StopTheJob` | v1 | POST | **job_id**（path）, body={build_no} |
+| 运行状态 | ⭐ `ShowJobBuildRecordDetail` | v1 | GET | **job_id**, **build_no**（path）；返回单值 `result.status`（STARTED/SUCCESS/FAILED，2026-09-18 评审落定为 get_status 接口）；`ShowJobStepStatus`（v1）保留供 wait_build 轮询 |
 | 是否在构建 | ⭐ `ShowRunningStatus` | v1 | GET | **job_id** |
-| 历史列表 | ⭐ `ListRecords` | v1 | GET | **build_project_id**, limit?, offset? |
+| 历史列表 | ⭐ `ListRecords` | v1 | GET | **build_project_id**, page?, limit? |
 | 记录详情 | ⭐ `ShowJobBuildRecordDetail` | v1 | GET | **job_id**, **build_no** |
 | 简要信息 | ⭐ `ListBriefRecord` | v1 | POST | **limit**, body=job_id 数组 |
 | 构建产物 | ⭐ `ShowNewOutput` | v1 | GET | **job_id**, **build_no**（KooCLI 未封装，需手动 HTTP 调用） |
@@ -458,7 +493,7 @@ interface LogError {
 
 **v3 旧版接口（禁用）**：`CreateBuildJob`、`RunJob`、`UpdateBuildJob`、`DeleteBuildJob`、`StopJob`、`StopBuildJob`、`ListJobConfig`、`ShowJobStatus`、`ShowListHistory`、`ShowLastHistory`、`ShowListPeriodHistory`、`ShowHistoryDetails`、`ShowRecordInfo`、`ShowOutputInfo`、`ShowJobListByProjectId`、`ListBuildInfoRecord`、`ShowJobSuccessRatio`、`DownloadLogByRecordId`、`DownloadRealTimeLog`、`ListNotice`、`ListTemplates`。
 
-> ⚠️ **接口禁用规则（评审决策）**：CodeArtsBuild **v3 为旧版接口（禁用）**，**v1/v4 为新接口（优先使用）**。判定依据为 KooCLI 服务定义中的 `Request.Path`（如 `ExecuteJob`→`/v1/job/execute`、`RunJob`→`/v3/jobs/build`）。完整禁用清单与推荐白名单见 `docs/api/api-contract.md` §1.4。
+> ⚠️ **接口禁用规则（评审决策）**：CodeArtsBuild **v3/v4 为旧版接口（一律禁用）**，**仅 v1 为推荐接口**。判定依据为 KooCLI 服务定义中的 `Request.Path`（如 `ExecuteJob`→`/v1/job/execute`、`RunJob`→`/v3/jobs/build`、`ShowRecordDetail`→`/v4/jobs/{id}/{no}/record-info`）。完整禁用清单与推荐白名单见 `docs/api/api-contract.md` §1.4。
 
 ### 4.9 CodeArtsBuild 完整操作列表（实测分类）
 
@@ -476,6 +511,8 @@ interface LogError {
 | **通知/权限/其他** | `ShowJobNoticeConfigInfo`、`ListNotice`、`UpdateNotice`、`UpdateNewNoticeNew`、`DisableNotice`、`ShowJobRolePermission`、`ShowJobPipelineInfo`、`ShowDomainStatus`、`ShowDomainsStatuses`、`ShowUserChargeType`、`ShowUserOverPackageQuota`、`CheckJobNameIsExists`、`CheckJobInternal`、`CheckJobCountIsTopLimit`、`CheckWebhookUrl`、`ClearRecyclingJobs`、`ListRecyclingJob`、`RestoreRecyclingJobs`、`DeleteRecyclingJobs`、`SetKeepTime`、`ShowActionIInfo`、`ShowAvailableInnerSpec`、`ShowReportSummary`、`ShowSummaryBuildJobInfo`、`ShowPackageSpecCountDown`、`ListEndPoints`、`ListGroupTree`、`CreateJobGroup`、`UpdateJobGroup`、`DeleteGroup`、`MoveGroup`、`BatchUpdateJobRolePermission`、`ListJunitCoverageSummary`、`DownloadJunitCoverageZip`、`ShowDisable`、`DisableBuildJob`、`EnableBuildJob`、`DisableTheJob`、`SwitchedPacket`、`ListUpdateJobHistory`、`ListRepository`、`ListRepoBranch` |
 
 > 完整操作名列表可由 `hcloud CodeArtsBuild --help` 实时获取。
+>
+> ⚠️ **本表为全量实测分类**（含 v3/v4 禁用接口，如 `ShowRecordInfo`/`ShowRecordDetail`/`DownloadBuildLog`/`DownloadTaskLog`）；**实际使用以 §4.8 核心操作表（⭐ v1）与 api-contract.md §1.4 白名单为准**。
 
 ---
 
@@ -491,10 +528,10 @@ interface LogError {
 | 4 | `codeartsbuild_create_job` | **projectId**, **jobName**, **arch**, **steps**, scms? | `{job_id}` |
 | 5 | `codeartsbuild_update_job` | **jobId**, **body** | `{updated: true}` |
 | 6 | `codeartsbuild_delete_job` | **jobId** | `{deleted: true}` |
-| 7 | `codeartsbuild_run_job` | **jobId**, parameters?, scm? | `{build_no}` |
+| 7 | `codeartsbuild_run_job` | **jobId**, parameter?, scm? | `{build_no, job_id, daily_build_no}` |
 | 8 | `codeartsbuild_stop_job` | **jobId**, **buildNo** | `{stopped: true}` |
-| 9 | `codeartsbuild_get_status` | **jobId**, **buildNo** | 状态信息 |
-| 10 | `codeartsbuild_list_records` | **projectId**, limit?, offset? | 历史记录 |
+| 9 | `codeartsbuild_get_status` | **jobId**, **buildNo** | 状态信息（result.status 映射统一枚举） |
+| 10 | `codeartsbuild_list_records` | **projectId**, page?, limit? | 历史记录 |
 | 11 | `codeartsbuild_get_record` | **jobId**, **buildNo** | 记录详情（含 `record_id`，失败定位） |
 | 12 | `codeartsbuild_list_artifacts` | **jobId**, **buildNo** | 产物清单（按介质分类，**页面跳转链接**） |
 | 13 | `codeartsbuild_list_templates` | — | 模板列表 |
@@ -516,32 +553,32 @@ sequenceDiagram
     participant U as 用户
     participant H as Harness(LLM)
     participant P as dsh 插件工具层
-    participant K as KooCLI(hcloud)
+    participant C as HTTP 承载层(http-client + AKSKSigner)
     participant API as CodeArtsBuild API
 
     U->>H: 帮我基于当前项目创建构建任务并执行（projectId 由用户提供）
     H->>P: codeartsbuild_repo_build（本地构建，模型自决）
     P-->>H: {language:"Java", buildTool:"Maven", recommendedSteps:[...]}
     H->>P: codeartsbuild_create_job(projectId, "auto-maven-build", body)
-    P->>K: hcloud CodeArtsBuild CreateNewJob
-    K->>API: 认证+调用
-    API-->>K: {job_id}
-    K-->>P: {job_id: "abc123"}
+    P->>C: POST /v1/job/create（AK/SK 签名）
+    C->>API: 认证+调用
+    API-->>C: {job_id}
+    C-->>P: {job_id: "abc123"}
     P-->>H: {job_id: "abc123"}
     H->>P: codeartsbuild_run_job(jobId="abc123")
-    P->>K: hcloud CodeArtsBuild ExecuteJob
-    K->>API: 认证+调用
-    API-->>K: {build_number: 1}
-    K-->>P: {build_number: 1}
+    P->>C: POST /v1/job/execute（AK/SK 签名）
+    C->>API: 认证+调用
+    API-->>C: {build_number: 1}
+    C-->>P: {build_number: 1}
     P-->>H: {build_number: 1}
     H->>P: codeartsbuild_wait_build(jobId, buildNumber=1)
     loop 每 10s
-        P->>K: hcloud CodeArtsBuild ShowJobStepStatus
-        K->>API: 认证+调用
-        API-->>K: RUNNING
+        P->>C: GET /v1/job/{id}/status（AK/SK 签名）
+        C->>API: 认证+调用
+        API-->>C: RUNNING
     end
-    API-->>K: SUCCESS
-    K-->>P: {status: "SUCCESS"}
+    API-->>C: SUCCESS
+    C-->>P: {status: "SUCCESS"}
     P-->>H: {status: "SUCCESS"}
     H-->>U: ✅ 构建任务已创建并执行成功
 ```
@@ -553,15 +590,15 @@ sequenceDiagram
     participant U as 用户
     participant H as Harness(LLM)
     participant P as dsh 插件工具层
-    participant K as KooCLI(hcloud)
+    participant C as HTTP 承载层(http-client + AKSKSigner)
     participant API as CodeArtsBuild API
 
     Note over H: wait_build 返回 status=FAILED
     H->>P: codeartsbuild_get_log(recordId)  ← 仅 error 分析时获取
-    P->>K: hcloud CodeArtsBuild DownloadBuildFullLog（download 接口）
-    K->>API: 认证+调用
-    API-->>K: 原始日志文本
-    K-->>P: 原始日志（若过大则截断，标记 truncated/byteSize）
+    P->>C: GET /v1/log/{record_id}/download-log（AK/SK 签名）
+    C->>API: 认证+调用
+    API-->>C: 原始日志文本
+    C-->>P: 原始日志（若过大则截断，标记 truncated/byteSize）
     P-->>H: 原始日志文本
     H->>P: 日志清洗（log-cleaner.ts，详见 log-cleaner.md）
     P-->>H: {structured: [...], errorSummary: {phase:"build", errorType:"编译错误", line:42, context:"..."}}
@@ -600,12 +637,12 @@ flowchart TD
 | **留档** | 每轮修复动作与结果写入构建留档（repo_archive 机制），升级时附完整尝试记录 |
 | **与工作流三协同** | 修复闭环是工作流三（交互升级）的前置——闭环内模型自决，超出即升级 |
 
-### 6.4 异常处理：KooCLI 未配置
+### 6.4 异常处理：凭据未配置
 
 ```
-插件加载/首次调用 → 检查 KooCLI 可用性
-  → hcloud 命令不存在 → 报错 + 提示安装 KooCLI（hcloud）
-  → 未配置 AK/SK（hcloud configure 未完成）→ 报错 + 提示执行 hcloud configure set
+插件加载/首次调用 → 检查凭据可用性
+  → credentialSource 未配置（hcloud-config / env 均不可用）→ 报错 + 提示配置 AK/SK（hcloud configure set 或环境变量 CAB_AK/CAB_SK）
+  → AK/SK 缺失 → 报错 + 提示对应配置路径
 ```
 
 ---
@@ -616,11 +653,11 @@ flowchart TD
 
 | 类别 | 示例 | 处理方式 |
 |------|------|----------|
-| 配置错误 | KooCLI 未安装、AK/SK 未配置 | 启动即失败，明确提示安装/配置 hcloud |
-| 认证错误 | 401 / Token 过期 | KooCLI 自动处理 Token；仍失败则提示检查 `hcloud configure` |
-| 参数错误 | 必填缺失、类型不符 | Zod 校验，返回字段级错误 |
-| 业务错误 | 任务不存在、无权限 | 透传 KooCLI 返回的错误码与描述 |
-| 网络错误 | 超时、连接失败 | 幂等命令重试 ≤3 次 |
+| 配置错误 | AK/SK 未配置（hcloud-config / env 均不可用） | 启动即失败，明确提示配置路径 |
+| 认证错误 | 401 / 403（AK/SK 错误、无权限） | 返回 E_AUTH，提示检查 AK/SK 与权限 |
+| 参数错误 | 必填缺失、类型不符 | schemastery 校验，返回字段级错误 |
+| 业务错误 | 任务不存在、无权限 | 透传 HTTP 响应体的错误码与描述 |
+| 网络错误 | 超时、连接失败 | 幂等请求重试 ≤3 次 |
 | 构建失败 | status=FAILED | 自动进入日志分析流程（G2） |
 | 超时错误 | wait_build 超时 | 返回当前状态 + 提示继续查询 |
 
@@ -653,33 +690,31 @@ flowchart TD
 
 ### 8.1 KooCLI 前置依赖
 
-**所有华为云 OpenAPI 调用（含 Token 获取）统一通过 KooCLI（`hcloud`）执行**，插件本身不再直接实现 IAM Token 获取或 HTTP 签名。
+**所有华为云 OpenAPI 调用经自建 HTTP 客户端承载**（`fetch` + `AKSKSigner` AK/SK 签名），插件本身不实现 IAM Token 获取（AK/SK 签名无 token 依赖）。凭据来源二选一：
 
 ```bash
-# 1. 安装 KooCLI（一次性）
-#    详见 https://support.huaweicloud.com/qs-hcli/hcli_02_001.html
-#    Linux/macOS: curl -sSL https://hwcloudcli.obs.cn-north-1.myhuaweicloud.com/cli/latest/hcloud_install.sh | bash
-#    Windows: 下载 hcloud_install.bat 执行
-
-# 2. 配置 AK/SK（一次性，KooCLI 负责 Token 获取与刷新）
+# 方案 1：hcloud config 兼容（已有 hcloud configure 用户可直接使用）
 hcloud configure set --cli-access-key=AK --cli-secret-key=SK --cli-region=cn-north-4
-hcloud configure set --cli-project-name=<project_name> --cli-domain-name=<domain_name>
 
-# 3. 验证
-hcloud CodeArtsBuild ShowRelatedProject --cli-region=cn-north-4
+# 方案 2：环境变量（CI/容器友好）
+export CAB_AK=<AK>
+export CAB_SK=<SK>
+export CAB_REGION=cn-north-4
 ```
 
-> 插件启动时执行 `hcloud --version` 与 `hcloud configure show` 探测可用性，未就绪则给出上述安装指引。
+> 插件首次调用时按 `credentialSource` 读取 AK/SK，进程内签名（`AKSKSigner`），不落盘、不入日志。
 
 ### 8.2 插件环境变量
 
 | 变量 | 必填 | 说明 |
 |------|------|------|
-| `CODEARTS_BUILD_REGION` | ✅ | 区域，如 `cn-north-4`（透传给 hcloud `--cli-region`） |
+| `CAB_AK` | 视凭据源 | AK（`credentialSource=env` 时必填） |
+| `CAB_SK` | 视凭据源 | SK（`credentialSource=env` 时必填） |
+| `CAB_REGION` | 视凭据源 | 区域，如 `cn-north-4`（默认 `cn-north-4`） |
 | `CODEARTS_BUILD_PROJECT_ID` | 推荐 | 默认项目 ID，用于 `create_job` 等需要 project_id 的调用 |
 | `CODEARTS_CONSOLE_BASE_URL` | ❌ | 控制台基础地址，用于拼装产物页面查询链接 |
 
-> AK/SK 不再由插件读取，统一由 KooCLI 管理（`hcloud configure`）。
+> 凭据源由 cordis.yml config `credentialSource` 选择（`hcloud-config` 默认 / `env`）；`hcloud-config` 源复用 `~/.hcloud/config.json` 明文 AK/SK。
 
 ### 8.3 dsh 插件安装
 
@@ -707,13 +742,35 @@ dsh web
 
 | 项 | 设计 |
 |----|------|
-| 凭据存储 | **凭据完全由 KooCLI 管理**（`hcloud configure`），插件不接触 AK/SK |
+| 凭据存储 | **凭据经凭据注入抽象**（`CredentialProvider` 接口）提供 AK/SK；插件**不接触明文 AK/SK**，仅传入 `AKSKSigner` 签名，凭据源可为 hcloud config / 环境变量 |
+| 凭据生命周期 | AK/SK 在进程内签名使用，**不落盘、不入日志、不入工具结果**；会话结束随进程退出释放 |
 | 最小权限 | 建议使用仅含 CodeArtsBuild 操作权限的子账号 AK/SK |
-| 敏感字段 | 工具结果序列化时剔除敏感字段；不打印 hcloud 输出中的凭据信息 |
-| 注入防护 | 工具参数作为 hcloud 命令参数传递，经转义处理，不做 shell 拼接 |
+| 敏感字段 | 工具结果序列化时剔除敏感字段；不打印 HTTP 请求/响应中的凭据信息（签名头为摘要，非明文） |
+| 注入防护 | HTTP 请求体由插件强类型对象构造后 `JSON.stringify`，无 shell 字符串拼接 |
 | 删除保护 | `delete_job` 描述明示不可逆，由 LLM 确认后调用 |
 | 日志安全 | 清洗后日志不含凭据信息；原始日志仅在内存中处理 |
 | 大日志管控 | 日志仅在 error 分析时获取，按需截断（标记 truncated）防内存溢出 |
+| ShowNewOutput | `list_artifacts` 与普通工具同构（HTTP 承载 + AK/SK 签名），无 token 例外 |
+
+### 9.1 凭据注入抽象设计
+
+```typescript
+/** 凭据提供者接口——保留"插件不接触凭据明文"承诺的架构抽象 */
+interface CredentialProvider {
+  /** 获取 AK/SK（进程内签名使用，不落盘） */
+  getCredentials(): Promise<{ ak: string; sk: string }>;
+  /** 获取 region（决定 endpoint） */
+  getRegion(): string;
+}
+
+/** 实现一：从 hcloud config 读取（兼容现有 hcloud configure 用户） */
+class HcloudConfigCredentialProvider implements CredentialProvider { ... }
+
+/** 实现二：环境变量注入（CAB_AK / CAB_SK / CAB_REGION，CI 友好） */
+class EnvCredentialProvider implements CredentialProvider { ... }
+```
+
+> AK/SK 仅在 `getCredentials()` 返回后立即传给 `AKSKSigner.sign()` 使用（进程内存），插件业务代码不接触 ak/sk 字段。凭据源由 cordis.yml config 配置选择，插件代码对凭据源无感知。
 
 ---
 
@@ -721,12 +778,12 @@ dsh web
 
 | 层 | 测试点 | 方式 |
 |----|--------|------|
-| 单元 | `infra/koo-cli.ts` 命令构造/输出解析/错误处理 | Vitest + mock 子进程 |
-| 单元 | `infra/local-build/` probe 类型探测、guidance 指导、build 执行/异常分类 | 各语言项目 fixture |
+| 单元 | `infra/http-client.ts` 签名头构造/错误映射/重试 | Vitest + mock fetch（或注入 dispatcher） |
+| 单元 | `infra/credential-provider.ts` 凭据源读取 | Vitest + mock hcloud config / env |
 | 单元 | `infra/local-build/` artifact 产物收集、archive 留档 | fixture 目录 |
 | 单元 | `infra/log-cleaner.ts` 清洗分类/截断 | 日志样本 fixture |
 | 单元 | `tools/` schema 校验 | Vitest |
-| 集成 | `providers/codeartsbuild` → KooCLI（命令录制回放） | fixture + replay |
+| 集成 | `providers/codeartsbuild` → HTTP（mock fetch 录制回放） | fixture + replay |
 | 集成 | `core/lifecycle` 调用链组合（wait_build 轮询） | mock provider |
 | E2E | G1 验收：创建+执行成功 | 真实项目端到端 |
 | E2E | G2 验收：失败诊断 | 故障注入构建 |
@@ -747,7 +804,7 @@ dsh web
 ## 12. 待确认问题
 
 1. ✅ **KooCLI 操作名对账（已完成）**：2026-09-16 实测 `hcloud CodeArtsBuild --help`，核心操作名见 §4.8。
-2. ✅ **接口版本体系（已确认）**：**v3 为旧版接口（禁用），v1/v4 为新接口（优先）**。判定依据 KooCLI 服务定义 `Request.Path` 实测（见 api-contract.md §1.4.0）。
+2. ✅ **接口版本体系（已确认，2026-09-18 修订）**：**v3/v4 为旧版接口（一律禁用），仅 v1 为推荐接口**。判定依据 KooCLI 服务定义 `Request.Path` 实测（见 api-contract.md §1.4.0）。
 3. **控制台页面链接格式**：产物页面查询链接（consoleUrl）的 URL 拼接规则需与目标环境控制台地址对齐。
 4. ✅ **默认项目 ID（已决策）**：**projectId 运行时定义**——不固定，由用户手动填写（`list_projects` 仅作查看辅助）；`CODEARTS_BUILD_PROJECT_ID` 仅为可选默认值（见 §4.3）。
 5. **dsh 插件发布渠道**：发布到 npm registry 供 `dsh plugin add` 安装，还是私有 registry / 本地路径？M1 可先本地路径调试。
@@ -755,3 +812,6 @@ dsh web
 7. ✅ **产物下载（已决策）**：**当前版本不提供下载**（`download_url` 需 token），`list_artifacts`（`ShowNewOutput` v1，KooCLI 未封装需手动调用）仅返回 `console_url` 页面跳转链接；大文件下载 M2 规划（见 operations/artifacts.md §5）。
 8. ✅ **`record_id` 获取路径（已确认）**：`get_record`（`ShowJobBuildRecordDetail` v1）实测返回 `build_record_id`/`execution_id`/`devcloud_project_id`；`get_log` 以 `build_record_id` 作为 recordId 调 `DownloadBuildFullLog`(v1)。
 9. **v1 接口参数实测**：`ListRecords`(build_project_id)、`ShowJobBuildSuccessRatio`、`ShowJobConfig`、`DeleteTheJob`/`StopTheJob` 等 v1 接口的实际参数需实调用确认（契约 §8 待确认项 #5/#6）。
+10. ✅ **openapi.yaml 对齐（2026-09-18 已执行）**：各工具输入输出已按 `docs/example/openapi.yaml` 校准（arch 枚举 x86-64/arm、steps module_id 全限定名、run_job 响应 octopus_job_name/actual_build_number、delete HTTP DELETE、list_records page/limit、get_status workflow.status、list_artifacts package_infos/image_infos 等）；**KooCLI 实调用确认**仍为待办 #1（openapi 定义 vs KooCLI 行为差异点见契约 §8）。
+11. ✅ **KooCLI 实调用确认（2026-09-18，待办 #1 完成）**：契约 §8 逐项实测——record_id 对应成立（build_record_id=ListRecords.id）、ShowNewOutput KooCLI 未封装（token 需插件内实现）、ShowJobStepStatus workflow.status=running、ExecuteJob 无 scm.branch（分支经 parameter）、ListRecords build_project_id 为 36 位 UUID、DeleteTheJob HTTP DELETE、StopTheJob body build_no、状态枚举含 STARTED/ABORTED/red/blue（§4 需修订）、CreateNewJob steps KooCLI 必填、DownloadBuildFullLog 返回 ZIP。
+12. ✅ **华为云调用承载方案（2026-09-20 决策）**：**从华为云 SDK 切换为自建 HTTP（AK/SK 签名）**。决策依据见 §3.3.1 对比表——SDK 业务客户端不可信（请求/响应黑盒、字段丢失、代理缺陷）；自建 HTTP 后契约即实现。仅保留 `huaweicloud-sdk-core` 签名库（`AKSKSigner`）。代价：推翻 v0.7.9 SDK 决策；`sdk-client.ts` 重构为 `http-client.ts`；`credential-provider.ts` 返回 AK/SK；`sdk-proxy-patch.ts` 删除；region→endpoint 映射表内嵌。切换方案见 `docs/design/http-migration-plan.md`（由 sdk-migration-plan.md 反转）。

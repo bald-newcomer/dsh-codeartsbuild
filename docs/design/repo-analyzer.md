@@ -1,10 +1,10 @@
 # CodeArtsBuild 插件 — 代码仓构建流程设计
 
 > **文档编号**: CAB-REPO-001  
-> **版本**: v0.2.2（recommended_steps 映射）  
-> **日期**: 2026-09-17  
+> **版本**: v0.2.4（迭代由用户决定）  
+> **日期**: 2026-09-19  
 > **状态**: 待评审  
-> **前置依赖**: 架构设计 v0.7.1（`docs/architecture/architecture.md` §4.6）、接口契约 v0.4.5（`docs/api/api-contract.md` §2.16）
+> **前置依赖**: 架构设计（`docs/architecture/architecture.md` §4.6）、接口契约（`docs/api/api-contract.md` §2.16）
 
 ## 修订记录
 
@@ -14,6 +14,8 @@
 | v0.2.0 | 2026-09-16 | **重构为 AI 自主构建流程设计**：编译构建对维护良好的代码仓而言可完全交给 AI 完成；本文档定义该阶段的流程、tools、规约，重点设计输入/输出/异常处理/留档，不再呈现"如何分析"的具体细节 |
 | v0.2.1 | 2026-09-16 | **本地构建域收敛为单一 `repo_build`**：探测/编译指导/执行/产物/留档内置；编译命令与异常修复由模型自决 |
 | v0.2.2 | 2026-09-17 | **recommended_steps 映射（待办 #5）**：输出新增 `recommended_steps`（与 create_job.steps 同构），可直接作为云端任务入参 |
+| v0.2.3 | 2026-09-18 | **module_id 全限定名对齐（openapi.yaml）**：recommended_steps 示例改全限定名（`devcloud2018.codeci_action_20043.action` 等）；repo_type→module_id 映射以 list_templates 实测为准，禁止臆造短名 |
+| v0.2.4 | 2026-09-19 | **命令语义注释（§4.3）**：明确本地编译指导命令与云端 step 模板默认 command 的语义差异，recommended_steps.command 从实际 build_command 推导 |
 
 ---
 
@@ -88,8 +90,8 @@
     }
   ],
   "recommended_steps": [
-    { "module_id": "maven", "name": "Maven 构建", "command": "mvn package -DskipTests" },
-    { "module_id": "upload_artifact", "name": "上传软件包到软件发布库" }
+    { "module_id": "devcloud2018.codeci_action_20043.action", "name": "Maven 构建", "command": "mvn package -DskipTests" },
+    { "module_id": "devcloud2018.codeci_action_20018.action", "name": "上传软件包到软件发布库" }
   ],
   "issues": [
     {
@@ -108,6 +110,8 @@
 ```
 
 > **`recommended_steps` 与 `create_job.steps` 同构**（`module_id` + `name` 必填），可直接作为 `create_job` 入参（契约 §2.16 映射契约）。
+>
+> **注意（2026-09-18 openapi 对齐）**：`module_id` 为**全限定名**（`devcloud2018.codeci_action_XXXXX.action`），示例中的 20043（Maven 构建）/20018（上传软件包到软件发布库）取自 openapi 实测；工具内置 repo_type→module_id 映射须以 `list_templates` 实测返回为准，禁止臆造短名（详见 tool-details.md §3.3）。
 
 ### 2.3 状态语义
 
@@ -176,6 +180,8 @@ flowchart TD
 | Docker | `docker build -t {image}:{tag} .` |
 
 > 这是**规约示例**而非检测表：AI 可结合仓库实际情况（package.json scripts、Makefile、CI 配置）自行调整命令。
+>
+> ⚠️ **与云端模板默认命令的区别**：上表为**本地编译指导**（面向本机环境、可含测试选项），与 `docs/design/step-templates.md` §2 的**云端 step 默认 command**（如 Maven 模板默认 `mvn package -Dmaven.test.skip=true -U -e -X -B`）**不同语义**——本地指导用于 `repo_build` 执行，云端默认值用于 `create_job` 组装；`recommended_steps` 的 `command` 从实际执行的 `build_command` 推导，不照抄本地指导表。
 
 ---
 
