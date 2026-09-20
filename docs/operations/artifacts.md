@@ -1,10 +1,10 @@
 # CodeArtsBuild 插件 — 构建产物规范
 
 > **文档编号**: CAB-ARTIFACTS-001  
-> **版本**: v0.2.0（统一结构体 + 介质类型 + 下载策略调整）  
-> **日期**: 2026-09-17  
+> **版本**: v0.2.2（迭代由用户决定）  
+> **日期**: 2026-09-18  
 > **状态**: 待评审  
-> **前置依赖**: 接口契约 v0.4.5（`docs/api/api-contract.md` §2.12）
+> **前置依赖**: 接口契约（`docs/api/api-contract.md` §2.12）
 
 ## 修订记录
 
@@ -12,6 +12,8 @@
 |------|------|------|
 | v0.1.0 | 2026-09-17 | 初始产物规范 |
 | v0.2.0 | 2026-09-17 | **统一产物结构体**：type 按介质区分（obs/image/artifact/local）；新增 record_id、language 字段；下载策略调整——当前版本不提供下载（download_url 需 token），仅提供 console_url 跳转查看 |
+| v0.2.1 | 2026-09-18 | **openapi 字段对齐**：ShowNewOutput 响应字段改 `package_infos`/`image_infos`（条目 type 枚举 package/image）；`obs` 类型标记为待实测确认（openapi 无 obs 字段） |
+| v0.2.2 | 2026-09-18 | **OBS step 闭环**：OBS 交付经构建步骤 `20057`（上传）/ `20063`（下载）实现，ShowNewOutput 仍无 obs 字段；`obs` 类型保留（预留） |
 
 ---
 
@@ -53,24 +55,26 @@
 
 | type | 介质 | 对应 ShowNewOutput 输出 | 典型示例 | 说明 |
 |------|------|------------------------|----------|------|
-| `artifact` | 制品（软件包） | `package_info` | jar / war / tgz / zip / wheel | 制品仓库中的构建包 |
-| `image` | 容器镜像 | `image_info` | Docker 镜像（SWR） | 镜像地址 + tag |
-| `obs` | OBS 对象 | `obs_info` | 上传到 OBS 的产物文件 | OBS URI |
+| `artifact` | 制品（软件包） | `package_infos`（条目 type=package） | jar / war / tgz / zip / wheel | 制品仓库中的构建包 |
+| `image` | 容器镜像 | `image_infos`（条目 type=image） | Docker 镜像（SWR） | 镜像地址 + tag |
+| `obs` | OBS 对象 | 待实测确认（openapi 无 obs 字段） | 上传到 OBS 的产物文件 | OBS URI（是否支持待确认） |
 | `local` | 本地文件（repo_build） | —（本地收集） | target/*.jar / dist/* | **本地产物统一用 `local`**，不细分 jar/war 等（语言类型由 `language` 字段表达） |
 
 > **type 语义**：`type` 只表达**存储介质**，不表达文件格式。文件格式（jar/war/tgz）由 `name` 后缀或 `language` 间接体现。
+>
+> **注意（2026-09-18 openapi 对齐 + action 定义确认）**：`ShowNewOutput` 实际响应为 `package_infos`/`image_infos`（数组）与单数 `package_info`（单个对象），**无 `obs_info`**；`obs` 类型保留在结构体中（预留）。**OBS 交付经构建步骤实现**：`codeci_action_20057`（上传 OBS 对象）/ `20063`（下载 OBS 对象）——产物上传 OBS 桶后经 console_url 查看，ShowNewOutput 不返回 obs 字段（契约 §8 #2，step-templates.md §3.4/§3.5）。
 
 ---
 
 ## 3. 云侧产物（list_artifacts）
 
-`list_artifacts(jobId, buildNo)` 经 `ShowNewOutput`（v1 `/v1/job/{job_id}/{build_no}/output`）返回三类产物，映射为：
+`list_artifacts(jobId, buildNo)` 经 `ShowNewOutput`（v1 `/v1/job/{job_id}/{build_no}/output`）返回产物，映射为：
 
 | ShowNewOutput 分组 | type | 说明 |
 |-------------------|------|------|
-| `package_info[]` | `artifact` | 制品包（jar/war/tgz 等） |
-| `image_info[]` | `image` | 容器镜像（SWR） |
-| `obs_info[]` | `obs` | OBS 上传对象 |
+| `package_infos[]`（条目 type=package） | `artifact` | 制品包（jar/war/tgz 等） |
+| `image_infos[]`（条目 type=image） | `image` | 容器镜像（SWR） |
+| `obs_infos[]`（openapi 无，待确认） | `obs` | OBS 上传对象（预留） |
 
 **示例（artifact）**：
 
@@ -112,7 +116,7 @@
 }
 ```
 
-> `ShowNewOutput` 具体字段结构（`package_info`/`image_info`/`obs_info`）以实调用确认为准（契约 §8 #2）。
+> `ShowNewOutput` 具体字段结构（`package_infos`/`image_infos`，条目 type 枚举 package/image）以实调用确认为准（契约 §8 #2）。
 
 ---
 

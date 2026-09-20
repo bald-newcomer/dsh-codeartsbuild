@@ -1,10 +1,10 @@
 # CodeArtsBuild 插件 — 日志清洗器规范
 
 > **文档编号**: CAB-LOG-001  
-> **版本**: v0.2.0（基于真实日志重设计）  
-> **日期**: 2026-09-16  
+> **版本**: v0.2.1（迭代由用户决定）  
+> **日期**: 2026-09-18  
 > **状态**: 待评审  
-> **前置依赖**: 架构设计 v0.6.0（`docs/architecture/architecture.md` §4.7）、接口契约 v0.3.x（`docs/api/api-contract.md` §2.15）  
+> **前置依赖**: 架构设计（`docs/architecture/architecture.md` §4.7）、接口契约（`docs/api/api-contract.md` §2.15）  
 > **真实样本**: `docs/example/j_KiBa9Q4j.txt`（425 行，Docker 镜像构建失败，错误码 `DEV.CB.0210043`）
 
 ## 修订记录
@@ -13,6 +13,7 @@
 |------|------|------|
 | v0.1.0 | 2026-09-15 | 初始规范草案（通用日志假设） |
 | v0.2.0 | 2026-09-16 | **基于真实日志重设计**：对齐 CodeArtsBuild 实际日志格式（`[时间][级别][步骤]: 内容`）；新增日志主 key / 资源池 / 步骤识别 / Finished 判定 / 步骤状态汇总提取；新增 CodeArtsBuild 错误码分类；重写输出 Schema |
+| v0.2.1 | 2026-09-18 | **ZIP 解压对齐（契约 §8 #10 实调用确认）**：`DownloadBuildFullLog` 返回 ZIP 压缩包（PK 头，内含 message.txt），清洗输入为**解压后文本**；§1 原则/§3.1 输入/§4 流水线补充解压前置步骤 |
 
 ---
 
@@ -22,9 +23,10 @@
 
 **核心原则**：
 1. **日志仅在 error 分析场景获取**（构建失败 / 用户显式要求），正常状态查询不触发
-2. 大日志**按需截断**（三区采样），标记 `truncated`
-3. 插件做**结构化和错误分类**，根因分析交给 LLM（不在插件内置 AI）
-4. **对齐真实日志格式**（以 `docs/example/j_KiBa9Q4j.txt` 为基准样本）
+2. **下载为 ZIP，先解压再清洗**（`DownloadBuildFullLog` 实测返回 ZIP 压缩包，PK 头，内含 message.txt 主日志——2026-09-18 实调用确认，契约 §8 #10）；解压在工具层完成，本清洗器输入为**解压后纯文本**
+3. 大日志**按需截断**（三区采样），标记 `truncated`
+4. 插件做**结构化和错误分类**，根因分析交给 LLM（不在插件内置 AI）
+5. **对齐真实日志格式**（以 `docs/example/j_KiBa9Q4j.txt` 为基准样本）
 
 ---
 
@@ -66,7 +68,7 @@
 
 | 参数 | 类型 | 必填 | 默认 | 说明 |
 |------|------|------|------|------|
-| rawLog | string | ✅ | — | 原始日志文本（download 接口获取） |
+| rawLog | string | ✅ | — | **解压后的原始日志文本**（`DownloadBuildFullLog` 返回 ZIP，工具层先解压取 message.txt 再传入；见 §9 解压规约） |
 | maxBytes | number | ❌ | 262144 | 截断上限（256 KB） |
 | errorFocus | boolean | ❌ | true | 是否优先提取错误段 |
 
@@ -147,7 +149,8 @@
 ## 4. 处理流水线
 
 ```
-原始日志
+下载原始日志（DownloadBuildFullLog，ZIP）
+  → ⓪ 解压（PK 头识别 → zip 库解压 → 取 message.txt 主日志）   ← 工具层（get_log）完成
   → ① 元信息提取（job_key / resource_pool）
   → ② 体积判定（byte_size / truncated）
   → ③ 三区采样（HEAD / TAIL / ERROR 上下文）
@@ -314,7 +317,20 @@
 
 ---
 
-## 9. 与接口契约的一致性
+## 9. ZIP 解压规约（get_log 工具层，2026-09-18 实调用确认）
+
+> **背景**：`DownloadBuildFullLog`（v1）实测返回 **ZIP 压缩包**（PK 头，非纯文本），内含 `message.txt` 主日志（契约 §8 #10）。解压在 `get_log` 工具层完成，清洗器（本文件）只接收解压后文本。
+
+| 项 | 规约 |
+|----|------|
+| **触发** | HTTP 下载（`DownloadBuildFullLog` v1）返回内容为 ZIP（PK 头 `PK\x03\x04`）时，识别并解压 |
+| **识别** | 前 4 字节为 `PK\x03\x04`（或 `PK\x05\x06`/`PK\x07\x08`）→ 视为 ZIP |
+| **解压** | zip 库解压；取 `message.txt`（主日志）；无 message.txt 时取体积最大的 `.txt`/`.log` 条目 |
+| **异常** | 非 ZIP 且非文本 → `E_LOG`（返回 console_url 提示控制台查看）；解压失败 → `E_LOG` |
+| **安全** | 解压后内容仅内存处理，不落盘；解压前校验条目（防 zip-slip：拒绝 `../` 路径条目） |
+| **体积** | 解压后按 §4.2 判定 byte_size / truncated |
+
+## 10. 与接口契约的一致性
 
 | 契约字段 | 本规范来源 | 状态 |
 |----------|-----------|------|
@@ -324,8 +340,9 @@
 | error_summary | §4.6 + §5 分类 | ✅ |
 | 日志仅 error 分析获取 | 外部调用约束（契约 §2.15） | ✅ |
 | **job_key / resource_pool / steps / finished / task_states** | §4.1/§4.4/§4.7（v0.2 新增） | ✅ |
+| **ZIP 解压（契约 §8 #10）** | §9 解压规约（v0.2.1 新增） | ✅ |
 
-## 10. 样本验证（j_KiBa9Q4j.txt）
+## 11. 样本验证（j_KiBa9Q4j.txt）
 
 对本样本运行清洗器，预期输出：
 

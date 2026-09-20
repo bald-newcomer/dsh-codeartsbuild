@@ -1,0 +1,210 @@
+# CodeArtsBuild 插件 — 自建 HTTP 承载切换方案
+
+> **文档编号**: CAB-DESIGN-007
+> **版本**: v0.1.0（迭代由用户决定）
+> **日期**: 2026-09-20
+> **状态**: 待评审
+> **上游依赖**: architecture.md（§3.3.1 决策反转 + §8.1 凭据配置 + §9.1 凭据注入抽象）、api-contract.md（§1.4 白名单 + §2 工具 URL）
+> **背景**: 架构评审决策（2026-09-20）从华为云 SDK 业务客户端切换为自建 HTTP 调用（AK/SK 签名）。原因：SDK 业务客户端不可信——请求/响应处理黑盒（`CreateBuildJobRequestBody` 缺 source_code/agency_urn/description 字段）、iam client 代理丢失需 monkey-patch、`(client as any)[method]()` 类型不安全。
+
+## 0. 文档定位
+
+本方案是 SDK → 自建 HTTP 切换的实施计划，回答"**如何从华为云 SDK 切换为自建 HTTP**"——模块替换映射、签名/请求构造设计、认证方式、回滚条件。不重复架构决策依据（见 architecture.md §3.3.1）。
+
+---
+
+## 1. 切换范围
+
+### 1.1 模块替换映射
+
+| 原模块（SDK 承载） | 新模块（自建 HTTP） | 职责 |
+|--------------------|--------------------|------|
+| `src/infra/sdk-client.ts` | `src/infra/http-client.ts` | HTTP 客户端封装（AK/SK 签名 + 错误映射 + 重试） |
+| `src/infra/sdk-proxy-patch.ts` | **删除** | 代理支持由 HTTP 层显式处理，无需 monkey-patch |
+| `src/infra/credential-provider.ts` | 重构 | 返回 AK/SK + region（非 BasicCredentials） |
+| `src/providers/codeartsbuild/create-job.ts` | 重构 | 用 HTTP client 构造请求体（不再用 SDK 模型类） |
+| `src/tools/index.ts` | 重构 | 注入 HttpClient 而非 SdkClient |
+| `package.json` | 依赖调整 | 移除 `huaweicloud-sdk-codeartsbuild`；保留 `huaweicloud-sdk-core`（仅签名） |
+| `scripts/run-layer2.js` | 重构 | 调 HTTP 而非 SDK |
+
+### 1.2 不受影响
+
+- 核心域类型（`src/core/types.ts`、`provider.ts`、`session.ts`）——与承载层无关
+- 模板组装器（`template-assembler.ts`）——纯本地逻辑
+- 工具 schema（`src/tools/schemas.ts`）——schemastery 定义不变
+- 入口注册（`src/entry/index.ts`）——仅 handler 内部变化
+- 单测（`tests/template-assembler.test.ts`）——不依赖承载层
+
+---
+
+## 2. 认证设计（AK/SK 签名）
+
+### 2.1 签名机制
+
+复用 `@huaweicloud/huaweicloud-sdk-core` 的 `AKSKSigner.sign(request, credential)`：
+
+```typescript
+import { AKSKSigner } from '@huaweicloud/huaweicloud-sdk-core/auth/AKSKSigner';
+
+const signedHeaders = AKSKSigner.sign(
+  {
+    method: 'POST',
+    endpoint: 'https://cloudbuild-ext.cn-north-4.myhuaweicloud.com/v1/job/create',
+    headers: { 'content-type': 'application/json' },
+    data: { arch: 'x86-64', job_name: 't', ... },
+  },
+  { getAk: () => ak, getSk: () => sk },   // CredentialProvider 提供，不落盘
+);
+// signedHeaders 含 Authorization / X-Sdk-Date / host
+```
+
+- **无 IAM 依赖**：AK/SK 签名不调 IAM、无 token 过期问题
+- **签名与 SDK 同源**：认证可靠性不变
+- **插件不接触明文**：AK/SK 仅在签名瞬间传给 `AKSKSigner`，业务代码不读取
+
+### 2.2 凭据源
+
+由 cordis.yml config `credentialSource` 选择：
+
+| credentialSource | 实现 | 读取 |
+|------------------|------|------|
+| `hcloud-config`（默认） | HcloudConfigCredentialProvider | `~/.hcloud/config.json` 明文 AK/SK + region |
+| `env` | EnvCredentialProvider | `CAB_AK` / `CAB_SK` / `CAB_REGION` |
+
+---
+
+## 3. HTTP 客户端封装设计
+
+### 3.1 接口定义
+
+```typescript
+// src/infra/http-client.ts
+import type { CredentialProvider } from './credential-provider.js';
+
+export interface HttpRequest {
+  method: 'GET' | 'POST' | 'DELETE' | 'PUT';
+  path: string;                       // /v1/job/create（契约 §2 标注）
+  query?: Record<string, string | number | undefined>;
+  body?: unknown;
+}
+
+export interface HttpCallOptions {
+  idempotent?: boolean;               // 支持重试（默认 false）
+  maxRetries?: number;                // 幂等默认 3
+  timeoutMs?: number;                 // 默认 60s
+  rawText?: boolean;                  // 返回原始文本（如日志下载）
+}
+
+export class HttpClient {
+  constructor(provider: CredentialProvider, opts?: { proxyUrl?: string });
+  /** 发送请求（AK/SK 签名 + 错误映射 + 幂等重试） */
+  async call<T>(req: HttpRequest, opts?: HttpCallOptions): Promise<T>;
+}
+```
+
+### 3.2 region → endpoint 映射（内嵌）
+
+从 SDK Region 表提取，不再依赖运行时：
+
+```typescript
+const REGION_ENDPOINTS: Record<string, string> = {
+  'cn-north-4': 'https://cloudbuild-ext.cn-north-4.myhuaweicloud.com',
+  'cn-north-1': 'https://cloudbuild-ext.cn-north-1.myhuaweicloud.com',
+  'cn-east-2': 'https://cloudbuild-ext.cn-east-2.myhuaweicloud.com',
+  'cn-south-1': 'https://cloudbuild-ext.cn-south-1.myhuaweicloud.com',
+  'cn-east-3': 'https://cloudbuild-ext.cn-east-3.myhuaweicloud.com',
+  'cn-south-2': 'https://cloudbuild-ext.cn-south-2.myhuaweicloud.com',
+  'cn-southwest-2': 'https://cloudbuild-ext.cn-southwest-2.myhuaweicloud.com',
+  'ap-southeast-3': 'https://cloudbuild-ext.ap-southeast-3.myhuaweicloud.com',
+  'sa-brazil-1': 'https://cloudbuild-ext.sa-brazil-1.myhuaweicloud.com',
+  'la-north-2': 'https://cloudbuild-ext.la-north-2.myhuaweicloud.com',
+  'la-south-2': 'https://cloudbuild-ext.la-south-2.myhuaweicloud.com',
+  'tr-west-1': 'https://cloudbuild-ext.tr-west-1.myhuaweicloud.com',
+};
+```
+
+### 3.3 错误映射
+
+| HTTP 状态 | 错误码 | 映射规则 |
+|-----------|--------|---------|
+| 网络异常（fetch reject） | `E_NETWORK` | 幂等重试 ≤3 次 |
+| 超时（AbortSignal） | `E_NETWORK` / `E_TIMEOUT` | 幂等重试 |
+| 401 | `E_AUTH` | 认证失败 |
+| 403 | `E_AUTH` | 权限不足 |
+| 4xx（非 401/403） | `E_PARAM` | 参数错误（含响应体 error 描述） |
+| 5xx | `E_API` | 服务端业务错误 |
+
+### 3.4 v1 接口白名单（URL 层）
+
+自建 HTTP 直接按 URL 构造，白名单即 URL 集合：
+
+| 工具 | Method | URL（契约 §2） |
+|------|--------|---------------|
+| create_job | POST | `/v1/job/create` |
+| update_job | POST | `/v1/job/update` |
+| delete_job | DELETE | `/v1/job/{job_id}/delete` |
+| run_job | POST | `/v1/job/execute` |
+| stop_job | POST | `/v1/job/{job_id}/stop` |
+| get_job | GET | `/v1/job/{job_id}/config` |
+| get_status | GET | `/v1/record/{job_id}/{build_no}/record-info` |
+| list_records | GET | `/v1/record/{build_project_id}/records` |
+| get_record | GET | `/v1/record/{job_id}/{build_no}/record-info` |
+| get_log | GET | `/v1/log/{record_id}/download-log` |
+| list_templates | GET | `/v1/template/officialtemplates` |
+| list_projects | GET | `/v1/domain/project/related` |
+| list_jobs | GET | `/v1/job/list` |
+| list_artifacts | GET | `/v1/job/{job_id}/{build_no}/output` |
+| wait_build | GET | `/v1/record/{job_id}/{build_no}/record-info`（轮询） |
+
+---
+
+## 4. 实施步骤
+
+| # | 步骤 | 产出 | 验证 |
+|---|------|------|------|
+| 1 | 移除 `huaweicloud-sdk-codeartsbuild` 依赖 | package.json | ✅ |
+| 2 | 重构 `credential-provider.ts` | 返回 AK/SK + region | 编译通过 |
+| 3 | 新增 `http-client.ts` | HTTP 客户端（签名 + 错误映射 + 重试） | 单测（mock fetch） |
+| 4 | 删除 `sdk-proxy-patch.ts` | 移除补丁 | 编译通过 |
+| 5 | 重构 `create-job.ts` | 构造 JSON 请求体（全字段含 description 等） | 编译 + 单测 |
+| 6 | 更新 `tools/index.ts` | 注入 HttpClient | 编译通过 |
+| 7 | 更新文档 | architecture.md / auth.md / api-contract.md | ✅ |
+| 8 | 更新测试 | http-client 单测 + create-job handler 单测 | 全绿 |
+| 9 | 脚本迁移 | `scripts/run-layer2.js` + `scripts/delete-jobs.mjs` 迁移到 HttpClient（移除 CAB_AUTH_PROJECT_ID 依赖——AK/SK 签名无 IAM token） | ✅ 完成 |
+
+---
+
+## 5. 回滚条件
+
+| 条件 | 动作 |
+|------|------|
+| AKSKSigner 签名与华为云服务端不兼容（实测 401） | 回退 SDK 承载（v0.7.9） |
+| HTTP 承载导致字段/响应解析问题且无法排查 | 回退 SDK |
+| `huaweicloud-sdk-core` 签名库引入意外依赖膨胀 | 评估自实现签名（crypto 原生，约 150 行） |
+
+---
+
+## 6. 与契约一致性核对
+
+| 核对项 | 本方案 | 一致? |
+|--------|--------|-------|
+| 承载层 | 自建 HTTP（architecture §3.3.1 决策） | ✅ |
+| 凭据隔离 | 凭据注入抽象（architecture §9.1） | ✅ |
+| v1 白名单 | URL 层白名单（§3.4） | ✅ |
+| 字段完整性 | 全契约字段直传（含 description/source_code/agency_urn） | ✅ |
+| 错误码 | HTTP 状态码 → ToolException 映射（§3.3） | ✅ |
+| 组装器 | 不变（tool-details §3.4） | ✅ |
+
+## 7. 实测记录（2026-09-20）
+
+**已验证**（真实华为云 API，region=cn-north-4，经代理 `proxycn2.huawei.com:8080`）：
+
+| 项 | 结果 |
+|----|------|
+| 代理链路（undici fetch + ProxyAgent） | ✅ 通（`curl` 直连超时，代理可达） |
+| TLS 处理（Windows schannel 证书吊销检查失败） | ✅ `NODE_TLS_REJECT_UNAUTHORIZED=0` 绕过（环境已预置） |
+| 签名请求发送 | ✅ 华为云正确响应：无签名时 `x-auth-token not found` → 带签名后 `Unauthorized`（签名被解析） |
+| AK/SK 签名头格式 | ✅ `SDK-HMAC-SHA256 Access=... SignedHeaders=content-type;host;x-sdk-date`（单测断言） |
+| hcloud config 凭据 | ⚠️ **加密存储**（`mode: AKSK`，AK 48 字符密文），直接签名 401 `APIGW.0301 Unauthorized`；**需环境变量 `CAB_AK`/`CAB_SK` 明文** |
+
+**结论**：自建 HTTP 承载（签名/代理/错误映射）链路可用；完整 200 验证需用户提供明文 AK/SK（环境变量 `CAB_AK`/`CAB_SK`）。待明文凭据就绪后跑 `scripts/run-layer2.js` 全量验证。

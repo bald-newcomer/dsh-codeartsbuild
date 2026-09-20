@@ -1,16 +1,19 @@
 # CodeArtsBuild 插件 — 错误码与故障排查
 
 > **文档编号**: CAB-ERRORS-001  
-> **版本**: v0.1.0（草案）  
-> **日期**: 2026-09-17  
+> **版本**: v0.3.0（迭代由用户决定）  
+> **日期**: 2026-09-20  
 > **状态**: 待评审  
-> **前置依赖**: 接口契约 v0.4.5（`docs/api/api-contract.md` §3）、日志清洗器 v0.2（`docs/design/log-cleaner.md`）
+> **前置依赖**: 接口契约（`docs/api/api-contract.md` §3）、日志清洗器（`docs/design/log-cleaner.md`）
 
 ## 修订记录
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v0.1.0 | 2026-09-17 | 初始错误码与故障排查 |
+| v0.2.0 | 2026-09-18 | 对齐契约 v0.5.2 与 log-cleaner v0.2.1：§4 日志分类补充 DOCKER_BUILD_FAILED/DOCKER_PULL_FAILED/LOGIN_FAILED |
+| v0.2.1 | 2026-09-19 | **错误分类引用化**：§3 改引用 repo-analyzer.md §5.1、§4 改引用 log-cleaner.md §5.1（消除双维护）；修正 §4 LOGIN_FAILED 重复行 |
+| v0.3.0 | 2026-09-20 | **承载反转（KooCLI → 自建 HTTP）**：§1 错误返回格式 `<KooCLI/API>` → `<HTTP/API>`；§2 错误码表 KooCLI 表述改 HTTP 签名/凭据；§5.1 排查场景更新（hcloud → CAB_AK/SK、代理、密文存储） |
 
 ---
 
@@ -20,7 +23,7 @@
 
 ```json
 {
-  "content": [{ "type": "text", "text": "[错误码] 人类可读描述\n详情: <KooCLI/API 返回详情>" }],
+  "content": [{ "type": "text", "text": "[错误码] 人类可读描述\n详情: <HTTP/API 返回详情>" }],
   "isError": true
 }
 ```
@@ -31,11 +34,11 @@
 
 | 错误码 | 含义 | 典型触发 | 建议处理 |
 |--------|------|----------|----------|
-| `E_CONFIG` | 配置缺失/非法 | KooCLI 未安装、region 未配置 | 安装/配置 hcloud（见 auth.md） |
-| `E_AUTH` | 认证失败 | AK/SK 失效、无权限 | 检查 `hcloud configure`；KooCLI 自动处理 Token |
-| `E_PARAM` | 参数校验失败 | 必填缺失、类型错误 | 按字段级错误列表修正 |
-| `E_API` | CodeArtsBuild 业务错误 | 任务不存在、重名、无权限 | 透传 KooCLI 错误码与描述 |
-| `E_NETWORK` | 网络异常 | 超时、连接失败 | 幂等命令重试 ≤3 次后报错 |
+| `E_CONFIG` | 配置缺失/非法 | 凭据未配置（env 缺 CAB_AK/SK 或 hcloud config 不可读）、region 无 endpoint | 配置凭据（见 auth.md §2） |
+| `E_AUTH` | 认证失败 | AK/SK 失效（401）、无权限（403） | 检查 AK/SK 与权限；hcloud config 密文时改用环境变量 |
+| `E_PARAM` | 参数校验失败 | 必填缺失、类型错误、module_id 非白名单 | 按字段级错误列表修正 |
+| `E_API` | CodeArtsBuild 业务错误 | 任务不存在、重名、无权限 | 透传 HTTP 响应 error_code/error_msg |
+| `E_NETWORK` | 网络异常 | 超时、连接失败、代理不通 | 幂等请求重试 ≤3 次后报错；检查代理 |
 | `E_TIMEOUT` | 构建等待超时 | wait_build 超时 | 返回 TIMEOUT（非异常）+ 最后状态 |
 | `E_LOG` | 日志处理错误 | 日志过大、下载失败 | 返回 console_url 提示控制台查看 |
 
@@ -43,42 +46,42 @@
 
 ## 3. 本地构建错误分类（repo_build）
 
-`repo_build` 失败时返回结构化 `error`，分类如下：
+> **权威分类表见 `docs/design/repo-analyzer.md` §5.1**（8 类：DEPENDENCY_MISSING/TOOL_MISSING/NETWORK_ERROR/COMPILE_ERROR/CONFIG_ERROR/ENV_ERROR/TIMEOUT/UNKNOWN + AI 自解策略），本处为速查摘要：
 
-| error_type | 匹配模式 | 典型场景 | AI 自解策略（限 1 轮） |
-|------------|----------|----------|------------------------|
-| `DEPENDENCY_MISSING` | `Could not resolve` / `module not found` | 依赖缺失/下载失败 | 安装依赖后重试 |
-| `TOOL_MISSING` | `command not found` | 构建工具未安装 | 安装工具或换替代命令 |
-| `NETWORK_ERROR` | 超时 / 连接失败 | 下载/拉取网络异常 | 重试 1 次 / 换镜像源 |
-| `COMPILE_ERROR` | `cannot find symbol` / `error:` | 编译错误 | 读上下文修复（≤1 轮） |
-| `CONFIG_ERROR` | Dockerfile 路径不存在 等 | 构建配置错误 | 修正配置重试 |
-| `ENV_ERROR` | 权限不足 / 资源不足 | 环境问题 | 升级用户 |
-| `TIMEOUT` | 构建超时 | 超时被杀 | 提示用户确认超时配置 |
-| `UNKNOWN` | 其他 | 兜底 | 升级用户 |
+| error_type | 典型场景 | AI 自解策略（限 1 轮） |
+|------------|----------|------------------------|
+| `DEPENDENCY_MISSING` | 依赖缺失/下载失败 | 安装依赖后重试 |
+| `TOOL_MISSING` | 构建工具未安装 | 安装工具或换替代命令 |
+| `NETWORK_ERROR` | 下载/拉取网络异常 | 重试 1 次 / 换镜像源 |
+| `COMPILE_ERROR` | 编译错误 | 读上下文修复（≤1 轮） |
+| `CONFIG_ERROR` | 构建配置错误 | 修正配置重试 |
+| `ENV_ERROR` | 环境问题（权限/资源） | 升级用户 |
+| `TIMEOUT` | 构建超时 | 提示用户确认超时配置 |
+| `UNKNOWN` | 其他 | 升级用户 |
 
-> 自解失败 → 进入交互升级（通知用户异常类型 + 已尝试动作 + 选项）。
+> 完整匹配模式见 repo-analyzer.md §5.1。自解失败 → 进入交互升级（通知用户异常类型 + 已尝试动作 + 选项）。
 
 ---
 
 ## 4. 日志清洗错误分类（get_log）
 
-`get_log` 清洗输出 `error_summary.error_type`（详见 log-cleaner.md §5）：
+> **权威分类表见 `docs/design/log-cleaner.md` §5.1**（11 类，含 DOCKER_BUILD_FAILED/DOCKER_PULL_FAILED/LOGIN_FAILED），本处为速查摘要：
 
-| error_type | 匹配模式 | 典型场景 |
-|------------|----------|----------|
-| `DOCKER_BUILD_FAILED` | `docker build` / `unable to prepare context` | Docker 镜像构建失败 |
-| `DOCKER_PULL_FAILED` | `pull access denied` / `manifest unknown` | 镜像拉取失败 |
-| `COMPILE_ERROR` | `cannot find symbol` / `COMPILATION ERROR` | 编译失败 |
-| `DEPENDENCY_MISSING` | `Could not resolve` / `dependency not found` | 依赖缺失 |
-| `TEST_FAILURE` | `Tests run:.*Failures` / `BUILD FAILURE.*test` | 测试失败 |
-| `TIMEOUT` | `timed out` / `TimeoutException` | 构建/步骤超时 |
-| `OOM` | `OutOfMemoryError` / `Killed` / `heap space` | 内存不足 |
-| `PERMISSION_DENIED` | `403` / `Forbidden` / `unauthorized` | 权限/认证不足 |
-| `SCRIPT_ERROR` | `Command exited with` / `exit code` | 脚本命令失败 |
-| `LOGIN_FAILED` | `login failed` / `unauthorized.*registry` | 镜像仓库登录失败 |
-| `UNKNOWN` | 其他 error 级 | 兜底 |
+| error_type | 典型场景 |
+|------------|----------|
+| `DOCKER_BUILD_FAILED` | Docker 镜像构建失败（样本 DEV.CB.0210043） |
+| `DOCKER_PULL_FAILED` | 镜像拉取失败/不存在 |
+| `LOGIN_FAILED` | 镜像仓库登录失败 |
+| `COMPILE_ERROR` | 编译失败 |
+| `DEPENDENCY_MISSING` | 依赖缺失 |
+| `TEST_FAILURE` | 测试失败 |
+| `TIMEOUT` | 构建/步骤超时 |
+| `OOM` | 内存不足 |
+| `PERMISSION_DENIED` | 权限/认证不足 |
+| `SCRIPT_ERROR` | 脚本命令失败 |
+| `UNKNOWN` | 兜底 |
 
-**CodeArtsBuild 错误码**（从日志提取）：`DEV.CB.0210043` 等格式 `[A-Z]{2,}\.[A-Z]{2,}\.\d{4,}`，可据此精确查询。
+> 完整匹配模式与优先级见 log-cleaner.md §5.1/§5.2。**CodeArtsBuild 错误码**（从日志提取）：`DEV.CB.0210043` 等格式 `[A-Z]{2,}\.[A-Z]{2,}\.\d{4,}`，可据此精确查询。
 
 ---
 
@@ -88,9 +91,10 @@
 
 | 现象 | 原因 | 排查 |
 |------|------|------|
-| `hcloud: command not found` | KooCLI 未安装/未加 PATH | auth.md §2 |
-| 认证失败 401 | AK/SK 错误/失效 | `hcloud configure show` 重配 |
-| 无权限调用 | 子账号权限不足 | IAM 授权 CodeArtsBuild 操作权限 |
+| 凭据未配置 `E_CONFIG` | env 缺 CAB_AK/SK 或 hcloud config 不可读 | auth.md §2 配置凭据 |
+| 认证失败 401 | AK/SK 错误/失效，或 hcloud config 密文存储 | 改用环境变量 `CAB_AK`/`CAB_SK`（auth.md §4） |
+| 无权限调用 403 | 子账号权限不足 | IAM 授权 CodeArtsBuild 操作权限 |
+| 网络不通 `E_NETWORK` | 内网无法直连华为云 | 配置代理（`HTTPS_PROXY` 或 config proxyUrl）；Windows 需 `NODE_TLS_REJECT_UNAUTHORIZED=0` |
 
 ### 5.2 构建类
 
