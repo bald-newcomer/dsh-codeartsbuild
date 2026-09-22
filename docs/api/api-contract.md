@@ -944,7 +944,8 @@ v1: ShowRelatedProject, ListJob, ListProjectJobs, ShowJobConfig, CreateNewJob,
 | **总超时阈值** | `timeoutMs`（默认 30 分钟，上限 2 小时）；超时即中止轮询 |
 | **超时后行为** | 返回 `status=TIMEOUT` + 最后一次已知状态（`last_status`/`last_start_time`），**不抛异常**，由 LLM 决策后续（继续 get_status 或升级用户） |
 | 终态判定 | `SUCCESS` / `FAILED` / `ERROR` / `CANCELED` / `COMPLETED` 任一即停 |
-| 网络抖动 | 单次查询失败（网络错误）重试 ≤2 次（间隔 2s），不影响退避计数 |
+| 网络抖动 | 单次查询失败（网络错误）重试 ≤2 次（间隔 2s），不影响退避计数；**连续 3 轮网络失败才抛 E_NETWORK**，单轮抖动继续轮询 |
+| **终态复核** | `completed` + `workflow.error` 非取消类（2026-09-21 实测：error 可能瞬态，日志 `Finished: SUCCESS` 但 error 有值）→ 调 `ShowJobBuildRecordDetail`（`/v1/record/{job_id}/{build_no}/record-info`）复核权威终态；取消类 error（reason 含 取消/abort/cancel）→ 直接 CANCELED |
 
 **输出示例**：
 
@@ -1163,13 +1164,14 @@ v1: ShowRelatedProject, ListJob, ListProjectJobs, ShowJobConfig, CreateNewJob,
 | `CANCELED` | 终态 | 用户取消 |
 | `COMPLETED` | 终态 | 已完成 |
 
-> **修订说明（2026-09-18 实调用确认，契约 §8 #8）**：实测接口返回状态与 openapi/早期设计有差异，工具层需在适配层**映射为上述统一枚举**。原始接口状态映射表：
+> **修订说明（2026-09-18 实调用确认，契约 §8 #8；2026-09-21 Layer 2 实调补正）**：实测接口返回状态与 openapi/早期设计有差异，工具层需在适配层**映射为上述统一枚举**。原始接口状态映射表：
 
 | 接口 | 原始状态（实测） | 映射 |
 |------|-----------------|------|
-| `ShowJobStepStatus` | `result.workflow.status`：`running` / `completed` / `queued` / `aborted` | running→RUNNING、queued→QUEUED、completed→SUCCESS/FAILED（结合 workflow.error）、aborted→CANCELED |
+| `ShowJobStepStatus` | `result.workflow.status`：`running` / `completed` / `queued` / `aborted` | running→RUNNING、queued→QUEUED、completed→SUCCESS/FAILED/CANCELED（结合 workflow.error，见下）、aborted→CANCELED |
+| `ShowJobStepStatus`（2026-09-21 补） | `completed` + `workflow.error` | error 为**取消类**（code/reason 含 取消/abort/cancel，实测 `COCT.0020003.450` "用户取消任务执行"）→ **CANCELED**；error 其他 → FAILED；error=null → SUCCESS |
 | `ListRecords` | `data[].status`：`STARTED` / `ABORTED` / `SUCCESS` / `FAILED` / `ERROR` 等 | STARTED→RUNNING、ABORTED→CANCELED、其余直映 |
-| `ShowJobBuildRecordDetail` | `result.status`：`STARTED` / `SUCCESS` / `FAILED` 等 | STARTED→RUNNING、其余直映 |
+| `ShowJobBuildRecordDetail` | `result.status`：`STARTED` / `SCHEDULING` / `SUCCESS` / `FAILED` / `ABORTED` 等 | STARTED→RUNNING、**SCHEDULING→QUEUED**（2026-09-21 实调发现排队态）、ABORTED→CANCELED、其余直映 |
 | `ShowRunningStatus` | `last_build_status`：`Running` / `Finished` + `is_running`（**仅 job 最新一次构建，无 build_no 参数，不能按指定构建查询**） | Running→RUNNING；Finished+is_running=false→查终态（get_record/list_records） |
 | `ListJob` | `last_build_status`：`red` / `blue` / `aborted` / `InQueue` / `building` / `none`（openapi 枚举）；`last_job_running_status`：`Running`/`Finished` | red→FAILED、blue→SUCCESS、aborted→CANCELED、InQueue→QUEUED、building→RUNNING、none→未知；Running→RUNNING、Finished→已终态 |
 
@@ -1295,7 +1297,8 @@ repo_build(FAILED, 返回结构化错误) → 模型自决修复(通用 bash 装
 | 5 | `ListRecords`(v1) 参数 | ✅ **已实调用确认**：path 参数 `--build_project_id` 为 **36 位 UUID**（= ListJob 返回的 `build_project_id`，非 32 位 project_id）；`--page`/`--limit` 正确透传（实测返回 pagination）；支持 branches/tags/triggers/from_date/to_date 过滤 | ✅ |
 | 6 | `DeleteTheJob`/`StopTheJob`(v1) 参数 | ✅ **已实调用确认**：`DeleteTheJob` 为 **HTTP DELETE**（hcloud help `Method: DELETE`，无 body，job_id path）；`StopTheJob` body 为 `{build_no}`（实测传 `--build_no=1` 返回业务错误 DEVCB.00030000 而非参数错误，参数传递正确；构建已结束故停止失败，符合预期） | ✅ |
 | 7 | `get_status` 接口待定 | ✅ **已实调用确认（2026-09-18 修正）**：`ShowRunningStatus` 仅查询 **job 最新一次构建**的运行状态（无 build_no 参数，返回 `last_build_status`/`is_running`），**不能替代按 jobId+buildNo 查询的 get_status**；**评审决策（2026-09-18）：`get_status` 改用 `ShowJobBuildRecordDetail`**（实测按 jobId+buildNo 返回单值 `result.status`：STARTED/SUCCESS/FAILED，比 workflow.status 易解析）；`ShowJobStepStatus`（v1）保留供 `wait_build` 轮询使用 | ✅ |
-| 8 | **状态枚举冲突** | ✅ **已实调用确认存在**：ListRecords `data[].status` 实测含 `STARTED`/`ABORTED`；ShowJobBuildRecordDetail `status` 实测 `STARTED`；ListJob `last_build_status` 实测 `red`/`blue`/`aborted`、`last_job_running_status` 实测 `Running`/`Finished`——与 §4 枚举（QUEUED/RUNNING/SUCCESS/FAILED/ERROR/CANCELED/COMPLETED）**冲突**，需修订 §4（见 §4.1 修订说明） | ✅ |
+| 8 | **状态枚举冲突** | ✅ **已实调用确认存在**：ListRecords `data[].status` 实测含 `STARTED`/`ABORTED`；ShowJobBuildRecordDetail `status` 实测 `STARTED`；ListJob `last_build_status` 实测 `red`/`blue`/`aborted`、`last_job_running_status` 实测 `Running`/`Finished`——与 §4 枚举（QUEUED/RUNNING/SUCCESS/FAILED/ERROR/CANCELED/COMPLETED）**冲突**，需修订 §4（见 §4.1 修订说明）。**2026-09-21 Layer 2 补正**：ShowJobBuildRecordDetail 排队态实测 `SCHEDULING`；ShowJobStepStatus 对停止构建返回 `completed`+error 取消类（`COCT.0020003.450`）——均已在 §4.1 映射表补齐 | ✅ |
+| 11 | **ListRecords 空数据观察** | ⚠️ **2026-09-21 Layer 2 实调发现**：用 build_project_id=`a5e151e2-...`（任务 `maven-build-20260818` 的 build_project_id）调 ListRecords 返回 `total=-1, records=[]`，而该任务确有构建记录——build_project_id 口径与契约 §8 #5（= ListJob 返回的 build_project_id）可能不一致，待进一步确认 | ⚠️ |
 
 > **新增确认项（实测发现）**：
 > 9. **CreateNewJob steps 必填**：openapi 定义 steps 非必填，但 **KooCLI 封装要求 `--steps.[N].module_id`/`name` 必填**（hcloud help required）——tool-details.md §3.2 已按"业务建议必填"设计，KooCLI 层为强制。
