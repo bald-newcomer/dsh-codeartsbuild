@@ -1,0 +1,19 @@
+# 源码与测试（bundle 仅需 lib/ 编译产物 + cordis.patch.yml + package.json + README）
+src/
+tests/
+scripts/
+tsconfig.json
+
+# 文档（bundle 运行时不需要；仓库保留）
+docs/
+
+# 项目辅助文件
+AGENTS.md
+*.log
+.env*
+.DS_Store
+.idea/
+.codegraph/
+node_modules/
+# npm pack 产物
+*.tgz

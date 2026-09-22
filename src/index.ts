@@ -2,7 +2,7 @@
  * 模块出口（聚合导出）
  * 对齐 architecture.md §4.1（src/index.ts）
  */
-export { apply } from './entry/index.js';
+export * from './entry/index.js';
 export { createJobHandler } from './providers/codeartsbuild/create-job.js';
 export {
   assembleConfig,

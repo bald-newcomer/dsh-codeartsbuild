@@ -1,8 +1,14 @@
-# cordis.patch.yml - CodeArtsBuild 插件配置层
-# 安装时合并到 dsh profile 的 cordis.yml
-plugins:
-  - id: codeartsbuild
-    name: '@dsh-codearts/codeartsbuild'
-    config:
-      region: cn-north-4
-      # projectId 不在此固定——会话级动态注入（见 SKILL.md 强制规约 #1）
+# CodeArtsBuild 插件 bundle patch — dsh loader patch 数组格式
+# 安装时合并到 dsh profile 的 cordis.yml；本文件由 dsh 宿主在加载 bundle 时解析。
+# 在 profile 中插入 codeartsbuild 插件实例（含默认配置）。
+#
+# inject: [tools] —— 声明依赖 dsh 宿主提供的 tools 服务（工具注册器）。
+# 2026-09-21 安装验证：cordis 沙箱要求 entry 显式声明所需服务（fiber.entry.options.inject
+# → Inject.resolve → fiber.inject），否则 apply 中 ctx.tools 报 "cannot get property tools without inject"。
+- insert:
+    - id: codeartsbuild
+      name: '@dsh-codearts/codeartsbuild'
+      inject: ['tools']
+      config:
+        region: cn-north-4
+        # projectId 不在此固定——会话级动态注入（见 SKILL.md 强制规约 #1）
