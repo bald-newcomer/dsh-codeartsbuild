@@ -22,7 +22,7 @@ triggers:
 - **本地构建**（B）：`repo_build` —— 探测→编译指导→执行→产物→留档，编译过程由模型自决
 - **云侧**：项目感知（A）/ 任务编排（C）/ 执行控制（D）/ 状态监控（E）/ 产物与日志（F/G）
 
-底层华为云调用经 **KooCLI（hcloud）** 承载（AK/SK 由 `hcloud configure` 管理；例外：`list_artifacts` 的 `ShowNewOutput` 需手动 HTTP 调用）。
+底层华为云调用经 **自建 HTTP 承载**（AK/SK 签名，凭据经 `credentialSource` 注入：`hcloud-config` / 环境变量 `CAB_AK`/`CAB_SK`）。
 
 ---
 
@@ -150,7 +150,7 @@ list_jobs → delete_job（须确认后删）
 
 ## 配置（dsh 插件）
 
-前置依赖：宿主机已安装并配置 **KooCLI（hcloud）**（AK/SK 经 `hcloud configure set` 管理，插件不接触凭据）。
+前置依赖：凭据已配置（`credentialSource=hcloud-config` 复用 `~/.hcloud/config.json` 明文 AK/SK，或 `credentialSource=env` 设置 `CAB_AK`/`CAB_SK`/`CAB_REGION`；详见 docs/operations/auth.md）。
 
 ```yaml
 # cordis.patch.yml / profile 装配
@@ -159,6 +159,8 @@ plugins:
     name: '@dsh-codearts/codeartsbuild'
     config:
       region: cn-north-4
+      # credentialSource: env | hcloud-config（默认 hcloud-config，见 docs/operations/auth.md）
+      # proxyUrl: http://proxy.example.com:8080（内网代理，可选）
       # projectId 不在此固定——会话级动态注入（见"强制规约"#1：首次用户指定/list_projects 选择，后续自动复用）
 ```
 
