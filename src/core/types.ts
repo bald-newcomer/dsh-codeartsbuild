@@ -39,9 +39,9 @@ export interface BuildJobDetail {
   jobName: string;
   projectId: string;
   arch: string;
-  steps: BuildStep[];
+  steps: Step[];
   scms: ScmInfo[];
-  parameters: BuildParameterGroup[];
+  parameters: ParameterGroup[];
   flavor?: string;
   hostType?: string;
   buildConfigType?: string;
@@ -50,7 +50,7 @@ export interface BuildJobDetail {
 }
 
 /** 构建步骤（create_job.steps / get_job.steps） */
-export interface BuildStep {
+export interface Step {
   /** 全限定名：devcloud2018.codeci_action_XXXXX.action */
   module_id: string;
   name: string;
@@ -73,18 +73,18 @@ export interface ScmInfo {
 }
 
 /** 构建参数双层结构（parameters） */
-export interface BuildParameterGroup {
+export interface ParameterGroup {
   name: string;
-  params: BuildParameterItem[];
+  params: ParameterItem[];
 }
 
-export interface BuildParameterItem {
+export interface ParameterItem {
   name: string;
   value: string;
 }
 
 /** 构建产物（统一结构体，按介质） */
-export interface BuildArtifact {
+export interface output {
   name: string;
   type: 'obs' | 'image' | 'artifact' | 'local';
   language?: string;
@@ -95,7 +95,7 @@ export interface BuildArtifact {
 }
 
 /** 统一构建状态枚举（工具层规范化输出出口） */
-export type BuildStatus =
+export type status =
   | 'QUEUED'
   | 'RUNNING'
   | 'SUCCESS'
@@ -112,9 +112,9 @@ export interface CreateJobInput {
   arch: 'x86-64' | 'arm';
   stepsPlan?: StepsPlanItem[];
   language?: string;
-  steps?: BuildStep[];
+  steps?: Step[];
   scms?: ScmInfo[];
-  parameters?: BuildParameterGroup[];
+  parameters?: ParameterGroup[];
   description?: string;
   flavor?: string;
   hostType?: string;
@@ -145,9 +145,9 @@ export interface CreateNewJobRequest {
   arch: string;
   project_id: string;
   job_name: string;
-  steps: BuildStep[];
+  steps: Step[];
   scms?: ScmInfo[];
-  parameters?: BuildParameterGroup[];
+  parameters?: ParameterGroup[];
   description?: string;
   flavor?: string;
   host_type?: string;

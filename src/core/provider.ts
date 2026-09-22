@@ -16,12 +16,12 @@ import type {
   ProjectInfo,
   JobInfo,
   BuildJobDetail,
-  BuildArtifact,
-  BuildStatus,
+  output,
+  status,
   CreateJobInput,
   CreateJobResult,
   ScmInfo,
-  BuildParameterGroup,
+  ParameterGroup,
 } from './types.js';
 
 export interface BuildProvider {
@@ -65,7 +65,7 @@ export interface BuildProvider {
   getStatus(jobId: string, buildNo: number): Promise<{
     jobId: string;
     buildNo: number;
-    status: BuildStatus;
+    status: status;
     startTime?: string;
     endTime?: string;
     durationMs?: number;
@@ -80,7 +80,7 @@ export interface BuildProvider {
     recordId: string;
     executionId?: string;
     projectId?: string;
-    status: BuildStatus;
+    status: status;
   }>;
   /**
    * 轮询等待构建终态（ShowJobStepStatus v1 含 flow 子步骤详情，指数退避 + 超时 TIMEOUT 非异常）
@@ -93,14 +93,14 @@ export interface BuildProvider {
   ): Promise<{
     jobId: string;
     buildNo: number;
-    status: BuildStatus;
+    status: status;
     startTime?: string;
     endTime?: string;
   }>;
 
-  /** 场景 F: 产物管理（ShowNewOutput v1 /v1/job/{job_id}/{build_no}/output） */
+  /** 场景 F: 产物管理*/
   outputs(jobId: string, buildNo: number): Promise<{
-    outputs: BuildArtifact[];
+    outputs: output[];
     jobId: string;
     buildNo: number;
   }>;

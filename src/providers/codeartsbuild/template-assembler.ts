@@ -13,7 +13,7 @@
  */
 import { ToolException } from '../../core/types.js';
 import type {
-  BuildStep,
+  Step,
   CreateJobInput,
   CreateNewJobRequest,
   StepsPlanItem,
@@ -130,7 +130,7 @@ export function loadTemplate(templateId: string): StepTemplate {
  * validateSteps：module_id 白名单校验
  * @throws E_PARAM module_id 不在白名单时
  */
-export function validateSteps(steps: BuildStep[]): void {
+export function validateSteps(steps: Step[]): void {
   for (const [i, step] of steps.entries()) {
     if (!step.module_id || !WHITELIST_MODULE_IDS.has(step.module_id)) {
       throw new ToolException(
@@ -154,7 +154,7 @@ export function validateSteps(steps: BuildStep[]): void {
 export function assembleSteps(input: {
   stepsPlan?: StepsPlanItem[];
   language?: string;
-}): BuildStep[] {
+}): Step[] {
   // ① stepsPlan：意图级步骤计划（顺序 + 每步参数，properties 合并默认值）
   if (input.stepsPlan && input.stepsPlan.length > 0) {
     return input.stepsPlan.map((plan) => {
@@ -198,7 +198,7 @@ export function assembleSteps(input: {
  */
 export function assembleConfig(input: CreateJobInput): CreateNewJobRequest {
   // steps 组装（显式 steps 最高优先；否则 stepsPlan/language）
-  const steps: BuildStep[] = input.steps ?? assembleSteps({ stepsPlan: input.stepsPlan, language: input.language });
+  const steps: Step[] = input.steps ?? assembleSteps({ stepsPlan: input.stepsPlan, language: input.language });
   validateSteps(steps);
 
   return {

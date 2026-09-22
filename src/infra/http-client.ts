@@ -36,8 +36,8 @@ export interface HttpRequest {
   method: 'GET' | 'POST' | 'DELETE' | 'PUT';
   /** 契约 §2 标注的 URL path，如 /v1/job/create */
   path: string;
-  /** 查询参数（可选） */
-  query?: Record<string, string | number | undefined>;
+  /** 查询参数（可选；数组展开为重复 query key，boolean 转字符串） */
+  query?: Record<string, string | number | boolean | string[] | undefined>;
   /** 请求体（可选，JSON 序列化） */
   body?: unknown;
 }
@@ -52,6 +52,8 @@ export interface HttpCallOptions {
   timeoutMs?: number;
   /** 返回原始文本（如日志下载，默认 false=JSON 解析） */
   rawText?: boolean;
+  /** 返回二进制字节（如日志 ZIP 下载，优先级高于 rawText） */
+  rawBinary?: boolean;
 }
 
 /** SDK 签名器要求的 credential 形状 */
@@ -82,7 +84,7 @@ export class HttpClient {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        return await this.sendOnce<T>(req, timeoutMs, opts?.rawText);
+        return await this.sendOnce<T>(req, timeoutMs, opts);
       } catch (e) {
         lastError = e instanceof ToolException ? e : new ToolException('E_API', `HTTP 调用失败: ${(e as Error).message}`);
         const isNetwork = lastError.code === 'E_NETWORK';
@@ -96,7 +98,7 @@ export class HttpClient {
   }
 
   /** 单次请求发送 */
-  private async sendOnce<T>(req: HttpRequest, timeoutMs: number, rawText?: boolean): Promise<T> {
+  private async sendOnce<T>(req: HttpRequest, timeoutMs: number, opts?: HttpCallOptions): Promise<T> {
     const { ak, sk } = await this.provider.getCredentials();
     const region = this.provider.getRegion();
     const endpoint = REGION_ENDPOINTS[region];
@@ -107,12 +109,29 @@ export class HttpClient {
     const url = new URL(endpoint + req.path);
     if (req.query) {
       for (const [k, v] of Object.entries(req.query)) {
-        if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+        if (v === undefined || v === null || v === '') continue;
+        if (Array.isArray(v)) {
+          // 数组参数展开为重复 query key（如 branches=a&branches=b）
+          for (const item of v) {
+            if (item !== undefined && item !== null && item !== '') url.searchParams.append(k, String(item));
+          }
+        } else {
+          url.searchParams.set(k, String(v));
+        }
       }
     }
 
     const body = req.body !== undefined ? JSON.stringify(req.body) : undefined;
     const baseHeaders: Record<string, string> = { 'content-type': 'application/json' };
+
+    // queryParams 对象（签名器 CanonicalQueryString 读取 request.queryParams，非 endpoint 内 query——
+    // 2026-09-21 实调发现：GET 带 query 时漏传导致 401 APIGW.0301 签名不匹配）
+    const queryParams: Record<string, string | string[]> = {};
+    for (const [k, v] of url.searchParams.entries()) {
+      if (queryParams[k] === undefined) queryParams[k] = v;
+      else if (Array.isArray(queryParams[k])) (queryParams[k] as string[]).push(v);
+      else queryParams[k] = [queryParams[k] as string, v];
+    }
 
     // AK/SK 签名（与 SDK 同源；endpoint 必须含协议头供签名器解析 host）
     const signedHeaders = AKSKSigner.sign(
@@ -121,6 +140,7 @@ export class HttpClient {
         endpoint: url.toString(),
         headers: baseHeaders,
         data: req.body !== undefined ? req.body : undefined,
+        queryParams,
       },
       { getAk: () => ak, getSk: () => sk } satisfies SignerCredential,
     );
@@ -147,7 +167,11 @@ export class HttpClient {
       throw mapHttpError(response.status, errBody);
     }
 
-    if (rawText) return (await response.text()) as T;
+    if (opts?.rawBinary) {
+      // 二进制返回（如日志 ZIP 下载）：响应体不可按 UTF-8 解码，直接返回字节
+      return (await response.arrayBuffer()) as T;
+    }
+    if (opts?.rawText) return (await response.text()) as T;
     // 空响应体处理
     const text = await response.text();
     if (!text) return undefined as T;
