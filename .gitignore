@@ -10,5 +10,10 @@ lib/
 docs/临时*.md
 docs/example/
 
+# npm/pnpm 打包产物与锁文件（插件库不入 lock）
+*.tgz
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
 # codegraph index cache
 .codegraph/
