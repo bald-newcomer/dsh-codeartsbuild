@@ -30,7 +30,7 @@ function makeInput(overrides?: Partial<CreateJobHandlerInput>): CreateJobHandler
   return {
     jobName: 'test-job',
     arch: 'x86-64',
-    projectId: '6182b718f0194e3e89bfe017b5aed96f',
+    projectId: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
     steps: VALID_STEPS,
     ...overrides,
   };
@@ -56,8 +56,8 @@ describe('createJobHandler', () => {
     expect(req.method).toBe('POST');
     expect(req.path).toBe('/v1/job/create');
     expect(req.body.job_name).toBe('test-job');
-    expect(req.body.project_id).toBe('6182b718f0194e3e89bfe017b5aed96f');
-    expect(session).toHaveProperty('projectId', '6182b718f0194e3e89bfe017b5aed96f');
+    expect(req.body.project_id).toBe('a1b2c3d4e5f60718293a4b5c6d7e8f90');
+    expect(session).toHaveProperty('projectId', 'a1b2c3d4e5f60718293a4b5c6d7e8f90');
   });
 
   it('成功：description 字段直传（不丢失）', async () => {

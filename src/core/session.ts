@@ -17,19 +17,18 @@ export function resolveProjectId(
   envDefault: string | undefined,
 ): string {
   let resolved: string;
-  // 优先级 1：显式入参
+  // 显式入参
   if (explicit && explicit.trim()) {
     resolved = explicit;
   }
-  // 优先级 2：会话上下文
+  // 会话上下文
   else if (session?.projectId && session.projectId.trim()) {
     resolved = session.projectId;
   }
-  // 优先级 3：配置默认值
+  // 配置默认值
   else if (envDefault && envDefault.trim()) {
     resolved = envDefault;
   }
-  // 全部缺省 → E_PARAM，提示 LLM 走 list_projects 询问
   else {
     throw new ToolException(
       'E_PARAM',

@@ -11,11 +11,12 @@
  * ⑥ 成功 → {job_id, created: true}；失败 → 透传 E_API
  */
 import { HttpClient } from '../../infra/http-client.js';
-import { makeErrorResult, makeSuccessResult } from '../../infra/tool-result.js';
-import { resolveProjectId, type SessionContext } from '../../core/session.js';
+import { makeSuccessResult, mapToolError } from '../../infra/tool-result.js';
+import { resolveProjectId } from '../../core/session.js';
 import { ToolException, type ToolResult } from '../../core/types.js';
-import type { ScmInfo, BuildParameterGroup } from '../../core/types.js';
+import type { ScmInfo, ParameterGroup } from '../../core/types.js';
 import { assembleConfig } from './template-assembler.js';
+import type { CloudToolContext } from './context.js';
 
 /** CreateNewJob HTTP 响应（契约 §2.4 输出示例） */
 interface CreateNewJobResponse {
@@ -38,7 +39,7 @@ export interface CreateJobHandlerInput {
     enable?: boolean;
   }>;
   scms?: ScmInfo[];
-  parameters?: BuildParameterGroup[];
+  parameters?: ParameterGroup[];
   description?: string;
   flavor?: string;
   hostType?: string;
@@ -50,12 +51,8 @@ export interface CreateJobHandlerInput {
   groupId?: string;
 }
 
-/** 工具上下文（含 HTTP 客户端 + 会话） */
-export interface CreateJobToolContext {
-  client: HttpClient;
-  session?: SessionContext;
-  envProjectId?: string;
-}
+/** 工具上下文（含 HTTP 客户端 + 会话）——复用云侧共享上下文 */
+export type CreateJobToolContext = CloudToolContext;
 
 /**
  * create_job 工具 handler
@@ -112,9 +109,6 @@ export async function createJobHandler(
 
     return makeSuccessResult({ job_id: jobId, created: true }, `创建构建任务成功: jobId=${jobId}`);
   } catch (e) {
-    if (e instanceof ToolException) {
-      return makeErrorResult(e.code, e.message, e.details);
-    }
-    return makeErrorResult('E_API', `create_job 未知异常: ${(e as Error).message}`, (e as Error).stack);
+    return mapToolError(e, 'E_API');
   }
 }
