@@ -1,6 +1,6 @@
 /**
  * codeartsbuild_repo_build 工具 handler（本地构建域唯一工具）
- * 对齐 api-contract.md §2.16 + repo-analyzer.md §4
+ * 对齐 api-contract.md §2.16 + FE-01-本地代码仓构建流程设计-20260919.md §4
  *
  * 内部步骤：
  * ① fs 探测仓库类型（repoType 未传时自动）
@@ -32,7 +32,7 @@ const TAIL_BYTES = 4096;
 /** 默认超时 30 分钟 */
 const DEFAULT_TIMEOUT_MS = 1_800_000;
 
-/** 失败异常分类（repo-analyzer.md §5.1） */
+/** 失败异常分类（FE-01-本地代码仓构建流程设计-20260919.md §5.1） */
 interface BuildError {
   error_type: string;
   error_code: string | null;
@@ -135,7 +135,7 @@ export async function repoBuildHandler(input: RepoBuildHandlerInput): Promise<To
     const durationSeconds = Math.round((Date.now() - started) / 1000);
     const recordId = new Date().toISOString().replace(/[-:T]/g, '').replace(/\..+/, '');
 
-    // ⑤ 结果判定：退出码 + 输出关键字（repo-analyzer.md §4.2）
+    // ⑤ 结果判定：退出码 + 输出关键字（FE-01-本地代码仓构建流程设计-20260919.md §4.2）
     const successKeyword = /BUILD SUCCESS|Finished: SUCCESS|success in/i.test(output);
     const failedKeyword = /BUILD FAILURE|Finished: FAILURE|ERROR:?/i.test(stderrTail || output);
     const status = exitCode === 0 || (successKeyword && !failedKeyword) ? 'SUCCESS' : 'FAILED';
@@ -176,7 +176,7 @@ export async function repoBuildHandler(input: RepoBuildHandlerInput): Promise<To
     if (status === 'SUCCESS') {
       return makeSuccessResult(data, `本地构建成功（${durationSeconds}s）: ${artifacts.length} 个产物`);
     }
-    // 失败：附加结构化错误，模型自决修复策略（repo-analyzer.md §4 模型自决）
+    // 失败：附加结构化错误，模型自决修复策略（FE-01-本地代码仓构建流程设计-20260919.md §4 模型自决）
     return makeSuccessResult(
       {
         ...data,

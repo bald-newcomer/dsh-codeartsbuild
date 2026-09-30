@@ -1,6 +1,6 @@
 {
   "name": "@dsh-codearts/codeartsbuild",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "Huawei Cloud CodeArts Build dsh plugin - manage build task lifecycle (create, run, artifacts)",
   "type": "module",
   "main": "lib/index.js",

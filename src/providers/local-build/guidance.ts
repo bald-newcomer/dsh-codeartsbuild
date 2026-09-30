@@ -1,6 +1,6 @@
 /**
  * 本地构建 — 编译指导
- * 对齐 repo-analyzer.md §4.3（参考命令表，仅指导不硬编码）
+ * 对齐 FE-01-本地代码仓构建流程设计-20260919.md §4.3（参考命令表，仅指导不硬编码）
  */
 import type { ProbeResult } from './probe.js';
 
@@ -29,7 +29,9 @@ export function buildGuidance(probe: ProbeResult, buildCommandHint?: string): st
   return '未能识别仓库类型，无法给出参考命令——请传入 buildCommandHint 指定编译命令。';
 }
 
-/** 仓库类型 → 云端 recommended_steps 默认映射（tool-details.md §3.3，全限定名白名单） */
+/** 仓库类型 → 云端 recommended_steps 默认映射（FE-03-工具详细设计-20260918.md §3.3，全限定名白名单）
+ * 环境锚点原则（FE-07 §2.1 O1）：npm 覆盖 TS/JS/Node——TypeScript 项目经 probe 命中 npm（package.json），
+ * 一律归 npm 模板 20014（构建环境等价），不以"用 tsc 编译"改选 Shell；命令差异用 properties.command 覆盖 */
 const REPO_TYPE_MODULE: Record<string, { module_id: string; name: string }> = {
   maven: { module_id: 'devcloud2018.codeci_action_20043.action', name: 'Maven 构建' },
   gradle: { module_id: 'devcloud2018.codeci_action_20008.action', name: 'Gradle' },

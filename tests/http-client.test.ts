@@ -1,12 +1,12 @@
 /**
  * http-client 单测（Layer 1，mock undici fetch，不需网络）
- * 对齐 http-migration-plan.md §3 + architecture.md §10
+ * 对齐 FE-06-自建HTTP承载切换方案-20260920.md §3 + architecture.md §10
  *
  * 注：http-client 经 `import('undici')` 动态加载 fetch（代理支持），
  * 测试用 vi.mock('undici') 拦截其 fetch / ProxyAgent。
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { HttpClient, REGION_ENDPOINTS } from '../src/infra/http-client.js';
+import { HttpClient, REGION_ENDPOINTS, resolveEndpoint } from '../src/infra/http-client.js';
 
 /** 固定凭据 provider（无网络） */
 const fakeProvider = {
@@ -49,8 +49,29 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe('resolveEndpoint（多 CodeArts 服务适配）', () => {
+  it('默认服务 codeartsbuild → cloudbuild-ext', () => {
+    expect(resolveEndpoint('codeartsbuild', 'cn-north-4')).toBe('https://cloudbuild-ext.cn-north-4.myhuaweicloud.com');
+    expect(resolveEndpoint('codeartsbuild', 'cn-south-1')).toBe('https://cloudbuild-ext.cn-south-1.myhuaweicloud.com');
+  });
+
+  it('codeartsrepo → codehub-ext（个别区域 codeartsrepo-ext）', () => {
+    expect(resolveEndpoint('codeartsrepo', 'cn-north-4')).toBe('https://codehub-ext.cn-north-4.myhuaweicloud.com');
+    expect(resolveEndpoint('codeartsrepo', 'la-south-2')).toBe('https://codeartsrepo-ext.la-south-2.myhuaweicloud.com');
+  });
+
+  it('未知 region 返回 undefined', () => {
+    expect(resolveEndpoint('codeartsbuild', 'xx-unknown-1')).toBeUndefined();
+    expect(resolveEndpoint('codeartsrepo', 'xx-unknown-1')).toBeUndefined();
+  });
+
+  it('REGION_ENDPOINTS 保持向后兼容（codeartsbuild 映射）', () => {
+    expect(REGION_ENDPOINTS['cn-north-4']).toBe('https://cloudbuild-ext.cn-north-4.myhuaweicloud.com');
+  });
+});
+
 describe('HttpClient', () => {
-  it('应构造完整 URL（endpoint + path + query）', async () => {
+  it('应构造完整 URL（endpoint + path + query，默认 codeartsbuild）', async () => {
     mockResponse({ ok: true, status: 200, text: '{"result":{"job_id":"abc"}}' });
     const client = new HttpClient(fakeProvider);
 
@@ -64,6 +85,23 @@ describe('HttpClient', () => {
     expect(url).toBe('https://cloudbuild-ext.cn-north-4.myhuaweicloud.com/v1/job/create');
     expect(opts.method).toBe('POST');
     expect(opts.body).toBe('{"arch":"x86-64","job_name":"t"}');
+  });
+
+  it('service=codeartsrepo 应解析到 codehub-ext endpoint', async () => {
+    mockResponse({ ok: true, status: 200, text: '{"result":{}}' });
+    const client = new HttpClient(fakeProvider);
+
+    await client.call({ method: 'GET', path: '/v2/projects/repositories', service: 'codeartsrepo' });
+
+    const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://codehub-ext.cn-north-4.myhuaweicloud.com/v2/projects/repositories');
+  });
+
+  it('service 未知 region 应抛 E_CONFIG', async () => {
+    const client = new HttpClient({ ...fakeProvider, getRegion: () => 'xx-unknown-1' });
+    await expect(client.call({ method: 'GET', path: '/v1/job/list' })).rejects.toMatchObject({
+      code: 'E_CONFIG',
+    });
   });
 
   it('应附加 AK/SK 签名头（Authorization/X-Sdk-Date/host）', async () => {

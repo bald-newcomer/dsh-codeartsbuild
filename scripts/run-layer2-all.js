@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Layer 2 全工具实调测试脚本
- * 对齐 layer2-test-suite.md v0.2.0（22 执行场景，5 阶段，阶段 5 暂缓）
+ * 对齐 TEST-02-Layer2全工具实调测试设计-20260921.md v0.2.0（22 执行场景，5 阶段，阶段 5 暂缓）
  *
  * 调用真实 handler（lib/providers/codeartsbuild/*.js）→ HttpClient（AK/SK 签名），
  * 验证工具层契约一致性（实现 vs api-contract.md，AGENTS 待办 #10）。

@@ -12,8 +12,7 @@
 |------|------|------|
 | v0.1.0 | 2026-09-17 | 初始产物规范 |
 | v0.2.0 | 2026-09-17 | **统一产物结构体**：type 按介质区分（obs/image/artifact/local）；新增 record_id、language 字段；下载策略调整——当前版本不提供下载（download_url 需 token），仅提供 console_url 跳转查看 |
-| v0.2.1 | 2026-09-18 | **openapi 字段对齐**：ShowNewOutput 响应字段改 `package_infos`/`image_infos`（条目 type 枚举 package/image）；`obs` 类型标记为待实测确认（openapi 无 obs 字段） |
-| v0.2.2 | 2026-09-18 | **OBS step 闭环**：OBS 交付经构建步骤 `20057`（上传）/ `20063`（下载）实现，ShowNewOutput 仍无 obs 字段；`obs` 类型保留（预留） |
+| v0.2.1 | 2026-09-18 | **openapi 字段对齐 + OBS step 闭环**：ShowNewOutput 响应字段改 `package_infos`/`image_infos`（条目 type 枚举 package/image）；OBS 交付经构建步骤 `20057`（上传）/ `20063`（下载）实现，ShowNewOutput 无 obs 字段；`obs` 类型保留（预留） |
 
 ---
 
@@ -62,7 +61,7 @@
 
 > **type 语义**：`type` 只表达**存储介质**，不表达文件格式。文件格式（jar/war/tgz）由 `name` 后缀或 `language` 间接体现。
 >
-> **注意（2026-09-18 openapi 对齐 + action 定义确认）**：`ShowNewOutput` 实际响应为 `package_infos`/`image_infos`（数组）与单数 `package_info`（单个对象），**无 `obs_info`**；`obs` 类型保留在结构体中（预留）。**OBS 交付经构建步骤实现**：`codeci_action_20057`（上传 OBS 对象）/ `20063`（下载 OBS 对象）——产物上传 OBS 桶后经 console_url 查看，ShowNewOutput 不返回 obs 字段（契约 §8 #2，step-templates.md §3.4/§3.5）。
+> **注意（2026-09-18 openapi 对齐 + action 定义确认）**：`ShowNewOutput` 实际响应为 `package_infos`/`image_infos`（数组）与单数 `package_info`（单个对象），**无 `obs_info`**；`obs` 类型保留在结构体中（预留）。**OBS 交付经构建步骤实现**：`codeci_action_20057`（上传 OBS 对象）/ `20063`（下载 OBS 对象）——产物上传 OBS 桶后经 console_url 查看，ShowNewOutput 不返回 obs 字段（实调用确认，见 `docs/api/tools/list_artifacts.md`；FE-04-Step模板库拆解-20260918.md §3.4/§3.5）。
 
 ---
 
@@ -116,7 +115,7 @@
 }
 ```
 
-> `ShowNewOutput` 具体字段结构（`package_infos`/`image_infos`，条目 type 枚举 package/image）以实调用确认为准（契约 §8 #2）。
+> `ShowNewOutput` 具体字段结构（`package_infos`/`image_infos`，条目 type 枚举 package/image）以实调用确认为准（见 `docs/api/tools/list_artifacts.md`）。
 
 ---
 
@@ -165,7 +164,7 @@
 
 ## 6. 留档
 
-`repo_build` 本地构建产物与过程记录自动写入 `.codeartsbuild/build-records/`（见 design/repo-analyzer.md §6），`record_id` 即留档记录 ID，供追溯与复用。
+`repo_build` 本地构建产物与过程记录自动写入 `.codeartsbuild/build-records/`（见 design/FE-01-本地代码仓构建流程设计-20260919.md §6），`record_id` 即留档记录 ID，供追溯与复用。
 
 ---
 
@@ -175,5 +174,5 @@
 |----------|-----------|------|
 | 契约 §2.12 list_artifacts | §3 对齐（type 按介质映射） | ✅ |
 | 契约 §2.16 repo_build 产物 | §4 对齐（type: local 统一结构体） | ✅ |
-| 契约 §8 #2 ShowNewOutput 待确认 | §3 标注 | ✅ |
+| ShowNewOutput 字段（实调用确认） | §3 标注 | ✅ |
 | 下载策略（当前不下载） | §5 对齐 | ✅ |

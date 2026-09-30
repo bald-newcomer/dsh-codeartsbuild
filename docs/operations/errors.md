@@ -4,7 +4,7 @@
 > **版本**: v0.3.0（迭代由用户决定）  
 > **日期**: 2026-09-20  
 > **状态**: 待评审  
-> **前置依赖**: 接口契约（`docs/api/api-contract.md` §3）、日志清洗器（`docs/design/log-cleaner.md`）
+> **前置依赖**: 接口契约（`docs/api/api-contract.md` §3）、日志清洗器（`docs/design/FE-02-日志清洗器规范-20260918.md`）
 
 ## 修订记录
 
@@ -12,7 +12,7 @@
 |------|------|------|
 | v0.1.0 | 2026-09-17 | 初始错误码与故障排查 |
 | v0.2.0 | 2026-09-18 | 对齐契约 v0.5.2 与 log-cleaner v0.2.1：§4 日志分类补充 DOCKER_BUILD_FAILED/DOCKER_PULL_FAILED/LOGIN_FAILED |
-| v0.2.1 | 2026-09-19 | **错误分类引用化**：§3 改引用 repo-analyzer.md §5.1、§4 改引用 log-cleaner.md §5.1（消除双维护）；修正 §4 LOGIN_FAILED 重复行 |
+| v0.2.1 | 2026-09-19 | **错误分类引用化**：§3/§4 改引用 FE-01/FE-02 分类表（消除双维护）；修正 §4 LOGIN_FAILED 重复行 |
 | v0.3.0 | 2026-09-20 | **承载反转（KooCLI → 自建 HTTP）**：§1 错误返回格式 `<KooCLI/API>` → `<HTTP/API>`；§2 错误码表 KooCLI 表述改 HTTP 签名/凭据；§5.1 排查场景更新（hcloud → CAB_AK/SK、代理、密文存储） |
 
 ---
@@ -46,7 +46,7 @@
 
 ## 3. 本地构建错误分类（repo_build）
 
-> **权威分类表见 `docs/design/repo-analyzer.md` §5.1**（8 类：DEPENDENCY_MISSING/TOOL_MISSING/NETWORK_ERROR/COMPILE_ERROR/CONFIG_ERROR/ENV_ERROR/TIMEOUT/UNKNOWN + AI 自解策略），本处为速查摘要：
+> **权威分类表见 `docs/design/FE-01-本地代码仓构建流程设计-20260919.md` §5.1**（8 类：DEPENDENCY_MISSING/TOOL_MISSING/NETWORK_ERROR/COMPILE_ERROR/CONFIG_ERROR/ENV_ERROR/TIMEOUT/UNKNOWN + AI 自解策略），本处为速查摘要：
 
 | error_type | 典型场景 | AI 自解策略（限 1 轮） |
 |------------|----------|------------------------|
@@ -59,13 +59,13 @@
 | `TIMEOUT` | 构建超时 | 提示用户确认超时配置 |
 | `UNKNOWN` | 其他 | 升级用户 |
 
-> 完整匹配模式见 repo-analyzer.md §5.1。自解失败 → 进入交互升级（通知用户异常类型 + 已尝试动作 + 选项）。
+> 完整匹配模式见 FE-01-本地代码仓构建流程设计-20260919.md §5.1。自解失败 → 进入交互升级（通知用户异常类型 + 已尝试动作 + 选项）。
 
 ---
 
 ## 4. 日志清洗错误分类（get_log）
 
-> **权威分类表见 `docs/design/log-cleaner.md` §5.1**（11 类，含 DOCKER_BUILD_FAILED/DOCKER_PULL_FAILED/LOGIN_FAILED），本处为速查摘要：
+> **权威分类表见 `docs/design/FE-02-日志清洗器规范-20260918.md` §5.1**（11 类，含 DOCKER_BUILD_FAILED/DOCKER_PULL_FAILED/LOGIN_FAILED），本处为速查摘要：
 
 | error_type | 典型场景 |
 |------------|----------|
@@ -81,7 +81,7 @@
 | `SCRIPT_ERROR` | 脚本命令失败 |
 | `UNKNOWN` | 兜底 |
 
-> 完整匹配模式与优先级见 log-cleaner.md §5.1/§5.2。**CodeArtsBuild 错误码**（从日志提取）：`DEV.CB.0210043` 等格式 `[A-Z]{2,}\.[A-Z]{2,}\.\d{4,}`，可据此精确查询。
+> 完整匹配模式与优先级见 FE-02-日志清洗器规范-20260918.md §5.1/§5.2。**CodeArtsBuild 错误码**（从日志提取）：`DEV.CB.0210043` 等格式 `[A-Z]{2,}\.[A-Z]{2,}\.\d{4,}`，可据此精确查询。
 
 ---
 

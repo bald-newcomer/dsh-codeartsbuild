@@ -1,5 +1,5 @@
 /**
- * ZIP 解压辅助（get_log 专用，对齐 log-cleaner.md §9）
+ * ZIP 解压辅助（get_log 专用，对齐 FE-02-日志清洗器规范-20260918.md §9）
  *
  * DownloadBuildFullLog 实测返回 ZIP 压缩包（PK 头，内含 message.txt 主日志）。
  * 本模块识别 ZIP 并解压出主日志文本；安全：拒绝 zip-slip（../ 路径条目）。

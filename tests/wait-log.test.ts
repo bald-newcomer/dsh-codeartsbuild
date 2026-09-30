@@ -249,7 +249,7 @@ describe('getLogHandler', () => {
   });
 });
 
-// ─── log-cleaner（log-cleaner.md §11 样本基准） ───
+// ─── log-cleaner（FE-02-日志清洗器规范-20260918.md §11 样本基准） ───
 describe('cleanLog', () => {
   it('空日志返回空结构化模型', () => {
     const out = cleanLog({ rawLog: '' });
@@ -322,7 +322,7 @@ describe('cleanLog', () => {
   });
 });
 
-// ─── zip（log-cleaner.md §9 解压规约） ───
+// ─── zip（FE-02-日志清洗器规范-20260918.md §9 解压规约） ───
 describe('extractLogText', () => {
   it('ZIP 解压取 message.txt', () => {
         const zip = new AdmZip();

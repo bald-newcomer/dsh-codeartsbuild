@@ -1,6 +1,6 @@
 /**
  * create_job 模板化组装器
- * 对齐 tool-details.md §3.4 + step-templates.md §7.4
+ * 对齐 FE-03-工具详细设计-20260918.md §3.4 + FE-04-Step模板库拆解-20260918.md §7.4
  *
  * 职责：
  * 1. 加载 bundle 内 step-templates.json（14 模板）/ config-template.json（请求骨架）/ step-index.json（白名单）
@@ -57,7 +57,7 @@ const TEMPLATE_BY_ID: Map<string, StepTemplate> = new Map(TEMPLATES.map((t) => [
 const TEMPLATE_BY_MODULE: Map<string, StepTemplate> = new Map(TEMPLATES.map((t) => [t.module_id, t]));
 
 /**
- * 语言 → 推荐步骤组合（对齐 step-templates.md §1）
+ * 语言 → 推荐步骤组合（对齐 FE-04-Step模板库拆解-20260918.md §1）
  * key 为 language 值，value 为 template_id 数组（顺序即步骤顺序）
  */
 const LANGUAGE_COMBINATIONS: Record<string, string[]> = {
@@ -194,7 +194,7 @@ export function assembleSteps(input: {
 
 /**
  * assembleConfig：注入 config-template.json 占位，产出 CreateNewJob 请求体
- * 对齐 tool-details.md §3.4 伪代码
+ * 对齐 FE-03-工具详细设计-20260918.md §3.4 伪代码
  */
 export function assembleConfig(input: CreateJobInput): CreateNewJobRequest {
   // steps 组装（显式 steps 最高优先；否则 stepsPlan/language）

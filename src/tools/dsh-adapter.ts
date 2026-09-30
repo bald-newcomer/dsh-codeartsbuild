@@ -17,7 +17,7 @@ import type { CloudToolContext } from '../providers/codeartsbuild/context.js';
 
 /** 云侧工具上下文（模块级单例注入面） */
 let sharedContext: CloudToolContext | null = null;
-let pluginConfig: { credentialSource?: 'hcloud-config' | 'env'; proxyUrl?: string } = {};
+let pluginConfig: { credentialSource?: 'env' | 'file'; proxyUrl?: string } = {};
 
 /**
  * 配置工具运行时（dsh 插件 apply 时调用，注入 profile config）

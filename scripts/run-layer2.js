@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
  * Layer 2 实调用测试脚本 — 验证 create_job 模板有效性与回读一致性
- * 对齐 template-validation-suite.md §7.3（19 用例：TV-01~17 + TV-E01 + TV-E07）
+ * 对齐 TEST-01-模板验证测试套件设计-20260918.md §7.3（19 用例：TV-01~17 + TV-E01 + TV-E07）
  *
  * 流程（每用例）：① 组装器单测（本地） → ② CreateNewJob 实调用 → ③ ShowJobConfig 回读断言 → ④ DeleteTheJob 清理
  *
- * 承载：自建 HTTP（HttpClient + AKSKSigner 签名，见 http-migration-plan.md）
+ * 承载：自建 HTTP（HttpClient + AKSKSigner 签名，见 FE-06-自建HTTP承载切换方案-20260920.md）
  *
  * 前置：
- *  - 凭据：环境变量 CAB_AK/CAB_SK/CAB_REGION 或 hcloud config（credentialSource 可选参数）
+ *  - 凭据：环境变量 CAB_AK/CAB_SK/CAB_REGION（credentialSource=env，默认）或工作目录 .dsh-codearts（credentialSource=file）
  *  - 环境变量 CAB_TEST_PROJECT_ID=<测试项目 ID>（缺失时报错退出）
  *  - （不再需要 CAB_AUTH_PROJECT_ID——AK/SK 签名无 IAM token 依赖）
  *
@@ -16,7 +16,7 @@
  *  - 单用例:  node scripts/run-layer2.js --only=TV-01
  *  - 全量:    node scripts/run-layer2.js
  *  - 跳过清理: node scripts/run-layer2.js --no-cleanup
- *  - 凭据源:  node scripts/run-layer2.js --credential=env|hcloud-config
+ *  - 凭据源:  node scripts/run-layer2.js --credential=env|file
  *  - 代理:    node scripts/run-layer2.js --proxy=http://proxycn2.huawei.com:8080
  *
  * 报告输出：docs/example/test-report-{时间戳}.md

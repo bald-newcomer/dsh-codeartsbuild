@@ -24,7 +24,7 @@ export const createJobParameters: Record<string, unknown> = {
       },
     },
   },
-  language: { type: 'string', description: '语言/场景标识（速选默认组合）' },
+  language: { type: 'string', description: '语言/场景标识（速选默认组合），可用枚举（FE-04 §1）：Java/Maven（jar）、Java/Maven（容器）、Java/Gradle、Java/Android、JavaScript/npm、JavaScript/npm（容器）、Python/PyInstaller、Python/其他（setuptools 等）、Go——TS/JS/Node 一律用 JavaScript/npm（环境锚点）；禁止自造枚举值' },
   steps: {
     type: 'array',
     description: '构建步骤（原样透传，最高优先）[{module_id, name, properties?, enable?}]',
@@ -39,10 +39,10 @@ export const createJobParameters: Record<string, unknown> = {
       },
     },
   },
-  scms: { type: 'array', description: '代码源 [{scm_type, repo_id, repo_name, branch, url}]' },
+  scms: { type: 'array', description: '代码源 [{scm_type, repo_id, repo_name, branch, url}]；scm_type 仅支持 codehub（CodeArtsRepo），repo_id/url 取自建仓返回或已有任务回读，禁止臆造' },
   parameters: { type: 'array', description: '自定义参数双层结构' },
   description: { type: 'string', description: '任务描述' },
-  flavor: { type: 'string', description: '执行机规格' },
+  flavor: { type: 'string', description: '执行机规格，当前仅支持 DEFAULT（缺省即 DEFAULT）；禁止臆造其他值' },
   hostType: { type: 'string', description: '主机类型' },
   buildConfigType: { type: 'string', description: '构建配置类型（YAML/ACTION）' },
   sourceCode: { type: 'string', description: '代码源类型（pipeline/codeci）' },
@@ -162,6 +162,14 @@ export const repoBuildParameters: Record<string, unknown> = {
   timeoutMs: { type: 'integer', description: '超时（默认 1800000）' },
 };
 
+/** repo_prepare 参数（FE-08 §5，2026-09-28 自 repo_push 瘦身改名） */
+export const repoPrepareParameters: Record<string, unknown> = {
+  repoPath: { type: 'string', description: '本地 git 仓库绝对路径', required: true },
+  projectUuid: { type: 'string', description: '目标项目 UUID（32 位小写数字字母，来自 list_projects 的 identifier）', required: true },
+  repoName: { type: 'string', description: 'CodeArtsRepo 仓库名（默认取目录名）' },
+  branch: { type: 'string', description: '推送分支（默认 master；push 由模型执行时使用）' },
+};
+
 /** 通用导出（供 tools/index.ts 组装 InternalToolDef） */
 export const TOOL_PARAMETERS: Record<string, Record<string, unknown>> = {
   codeartsbuild_create_job: createJobParameters,
@@ -180,6 +188,7 @@ export const TOOL_PARAMETERS: Record<string, Record<string, unknown>> = {
   codeartsbuild_wait_build: waitBuildParameters,
   codeartsbuild_get_log: getLogParameters,
   codeartsbuild_repo_build: repoBuildParameters,
+  codeartsbuild_repo_prepare: repoPrepareParameters,
 };
 
 export type { InternalToolDef };
