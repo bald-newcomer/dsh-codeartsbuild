@@ -13,6 +13,7 @@
 | v0.1.0 | 2026-09-17 | 初始使用指南 |
 | v0.2.0 | 2026-09-18 | 工作流一去 `list_projects`（projectId 由用户/会话上下文提供，架构 §4.3）；对齐契约 v0.5.2 |
 | v0.3.0 | 2026-09-20 | **承载反转（KooCLI → 自建 HTTP）**：§1 前置依赖/凭据配置改 `CAB_AK`/`CAB_SK` 环境变量或 hcloud config；§4 配置项增 credentialSource/proxyUrl；§5 FAQ 改 HTTP 签名错误排查 |
+| v0.4.0 | 2026-09-30 | **移除 hcloud-config 凭据源**：凭据源收敛为 `env` / `file` 两种（见 auth.md v0.5.0） |
 
 ---
 
@@ -24,7 +25,7 @@
 |------|------|------|
 | Node.js | 20+（dsh 要求 22.19+） | dsh 运行环境 |
 | dsh | 0.1.1+ | DeepSeek Harness |
-| 凭据 | AK/SK（环境变量 `CAB_AK`/`CAB_SK` 或 hcloud config） | 华为云 API 自建 HTTP 承载（AK/SK 签名），见 auth.md |
+| 凭据 | AK/SK（环境变量 `CAB_AK`/`CAB_SK` 或工作目录 `.dsh-codearts`） | 华为云 API 自建 HTTP 承载（AK/SK 签名），见 auth.md |
 
 ### 1.2 配置凭据
 
@@ -34,12 +35,11 @@ export CAB_AK=<AK>
 export CAB_SK=<SK>
 export CAB_REGION=cn-north-4
 
-# 方式二：hcloud config 兼容（已有 hcloud configure 用户）
-hcloud configure set --cli-access-key=<AK> --cli-secret-key=<SK> --cli-region=cn-north-4
-# 注：hcloud config 若为加密存储（AK/SK 密文），改用方式一环境变量
+# 方式二：工作目录 .dsh-codearts 文件（按项目隔离凭据）
+# 在当前工作目录创建 .dsh-codearts（key=value 行格式），内容合入环境变量
 ```
 
-> 凭据源由插件 config `credentialSource` 选择（`env` / `hcloud-config`，默认自动）；AK/SK 仅在进程内签名使用，插件不落盘、不入日志（详见 auth.md）。
+> 凭据源由插件 config `credentialSource` 选择（`env` / `file`，默认自动探测：有 CAB_AK → env；cwd 有 `.dsh-codearts` → file）；AK/SK 仅在进程内签名使用，插件不落盘、不入日志（详见 auth.md）。
 
 ### 1.3 装配插件（dsh）
 
@@ -146,7 +146,7 @@ get_log(recordId)                           → 拉取并清洗日志
 
 | 配置 | 位置 | 说明 |
 |------|------|------|
-| credentialSource | 插件 config（`env`/`hcloud-config`） | 凭据源选择（默认：有 CAB_AK 用 env，否则 hcloud-config） |
+| credentialSource | 插件 config（`env`/`file`） | 凭据源选择（默认探测：有 CAB_AK → env；cwd 有 `.dsh-codearts` → file；否则报 E_CONFIG 提示配置） |
 | region | 插件 config / `CAB_REGION` | 云服务区域（默认 cn-north-4，决定 endpoint） |
 | proxyUrl | 插件 config / `HTTPS_PROXY`/`HTTP_PROXY` | 内网代理（访问华为云公网 API 需时） |
 | projectId | 会话级（不固定配置） | `CODEARTS_BUILD_PROJECT_ID` 仅作可选默认 |

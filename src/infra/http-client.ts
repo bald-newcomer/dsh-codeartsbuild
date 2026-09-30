@@ -1,6 +1,6 @@
 /**
  * 自建 HTTP 客户端封装（AK/SK 签名 + 错误映射 + 重试）
- * 对齐 architecture.md §3.3.1 + http-migration-plan.md §3
+ * 对齐 architecture.md §3.3.1 + FE-06-自建HTTP承载切换方案-20260920.md §3
  *
  * 职责：
  * 1. 基于 api-contract.md 接口契约构造 HTTP 请求（method + path + query + body）
@@ -8,34 +8,70 @@
  * 3. 错误映射（HTTP 状态码 → ToolException）
  * 4. 幂等重试 ≤3 次（E_NETWORK 类）
  * 5. 代理支持（内网访问华为云公网 API）
+ * 6. **多 CodeArts 服务适配**（2026-09-23）：请求按 `service` 解析对应 endpoint——
+ *    codeartsbuild（cloudbuild-ext）/ codeartsrepo（codehub-ext）等，默认 codeartsbuild
  *
- * region → endpoint 映射表内嵌（从 SDK Region 表提取，不依赖运行时 SDK）
+ * region → endpoint 映射表内嵌（从各服务 SDK Region 表提取，不依赖运行时 SDK）
  */
 import { AKSKSigner } from '@huaweicloud/huaweicloud-sdk-core/auth/AKSKSigner.js';
 import type { CredentialProvider } from './credential-provider.js';
 import { ToolException } from '../core/types.js';
 
-/** region → endpoint 映射（与 huaweicloud-sdk-codeartsbuild Region 表一致，2026-09-20 提取） */
-export const REGION_ENDPOINTS: Record<string, string> = {
-  'cn-north-4': 'https://cloudbuild-ext.cn-north-4.myhuaweicloud.com',
-  'cn-north-1': 'https://cloudbuild-ext.cn-north-1.myhuaweicloud.com',
-  'cn-east-2': 'https://cloudbuild-ext.cn-east-2.myhuaweicloud.com',
-  'cn-south-1': 'https://cloudbuild-ext.cn-south-1.myhuaweicloud.com',
-  'cn-east-3': 'https://cloudbuild-ext.cn-east-3.myhuaweicloud.com',
-  'cn-south-2': 'https://cloudbuild-ext.cn-south-2.myhuaweicloud.com',
-  'cn-southwest-2': 'https://cloudbuild-ext.cn-southwest-2.myhuaweicloud.com',
-  'ap-southeast-3': 'https://cloudbuild-ext.ap-southeast-3.myhuaweicloud.com',
-  'sa-brazil-1': 'https://cloudbuild-ext.sa-brazil-1.myhuaweicloud.com',
-  'la-north-2': 'https://cloudbuild-ext.la-north-2.myhuaweicloud.com',
-  'la-south-2': 'https://cloudbuild-ext.la-south-2.myhuaweicloud.com',
-  'tr-west-1': 'https://cloudbuild-ext.tr-west-1.myhuaweicloud.com',
+/** 支持的 CodeArts 服务（endpoint 前缀 → 服务名） */
+export type CodeArtsService = 'codeartsbuild' | 'codeartsrepo';
+
+/** 各服务 region → endpoint 前缀（主机名不含协议，协议统一 https） */
+const SERVICE_REGION_HOSTS: Record<CodeArtsService, Record<string, string>> = {
+  // 编译构建（与 huaweicloud-sdk-codeartsbuild Region 表一致，2026-09-20 提取）
+  codeartsbuild: {
+    'cn-north-4': 'cloudbuild-ext.cn-north-4.myhuaweicloud.com',
+    'cn-north-1': 'cloudbuild-ext.cn-north-1.myhuaweicloud.com',
+    'cn-east-2': 'cloudbuild-ext.cn-east-2.myhuaweicloud.com',
+    'cn-south-1': 'cloudbuild-ext.cn-south-1.myhuaweicloud.com',
+    'cn-east-3': 'cloudbuild-ext.cn-east-3.myhuaweicloud.com',
+    'cn-south-2': 'cloudbuild-ext.cn-south-2.myhuaweicloud.com',
+    'cn-southwest-2': 'cloudbuild-ext.cn-southwest-2.myhuaweicloud.com',
+    'ap-southeast-3': 'cloudbuild-ext.ap-southeast-3.myhuaweicloud.com',
+    'sa-brazil-1': 'cloudbuild-ext.sa-brazil-1.myhuaweicloud.com',
+    'la-north-2': 'cloudbuild-ext.la-north-2.myhuaweicloud.com',
+    'la-south-2': 'cloudbuild-ext.la-south-2.myhuaweicloud.com',
+    'tr-west-1': 'cloudbuild-ext.tr-west-1.myhuaweicloud.com',
+  },
+  // 代码托管（CodeArtsRepo，2026-09-23 文档确认：codehub-ext.{region}，个别区域 codeartsrepo-ext）
+  codeartsrepo: {
+    'cn-north-4': 'codehub-ext.cn-north-4.myhuaweicloud.com',
+    'cn-north-1': 'codehub-ext.cn-north-1.myhuaweicloud.com',
+    'cn-east-2': 'codehub-ext.cn-east-2.myhuaweicloud.com',
+    'cn-south-1': 'codehub-ext.cn-south-1.myhuaweicloud.com',
+    'cn-east-3': 'codehub-ext.cn-east-3.myhuaweicloud.com',
+    'cn-south-2': 'codehub-ext.cn-south-2.myhuaweicloud.com',
+    'cn-southwest-2': 'codehub-ext.cn-southwest-2.myhuaweicloud.com',
+    'ap-southeast-3': 'codehub-ext.ap-southeast-3.myhuaweicloud.com',
+    'sa-brazil-1': 'codehub-ext.sa-brazil-1.myhuaweicloud.com',
+    'la-north-2': 'codehub-ext.la-north-2.myhuaweicloud.com',
+    'la-south-2': 'codeartsrepo-ext.la-south-2.myhuaweicloud.com',
+    'tr-west-1': 'codehub-ext.tr-west-1.myhuaweicloud.com',
+  },
 };
+
+/** region → endpoint 映射（默认服务 codeartsbuild，向后兼容：原 REGION_ENDPOINTS 导出） */
+export const REGION_ENDPOINTS: Record<string, string> = Object.fromEntries(
+  Object.entries(SERVICE_REGION_HOSTS.codeartsbuild).map(([region, host]) => [region, `https://${host}`]),
+);
+
+/** 解析 service+region → 完整 endpoint URL */
+export function resolveEndpoint(service: CodeArtsService, region: string): string | undefined {
+  const host = SERVICE_REGION_HOSTS[service]?.[region];
+  return host ? `https://${host}` : undefined;
+}
 
 /** HTTP 请求定义（基于契约 §2 的 method + URL path） */
 export interface HttpRequest {
   method: 'GET' | 'POST' | 'DELETE' | 'PUT';
   /** 契约 §2 标注的 URL path，如 /v1/job/create */
   path: string;
+  /** 目标 CodeArts 服务（默认 codeartsbuild；repo 类工具用 codeartsrepo） */
+  service?: CodeArtsService;
   /** 查询参数（可选；数组展开为重复 query key，boolean 转字符串） */
   query?: Record<string, string | number | boolean | string[] | undefined>;
   /** 请求体（可选，JSON 序列化） */
@@ -101,9 +137,15 @@ export class HttpClient {
   private async sendOnce<T>(req: HttpRequest, timeoutMs: number, opts?: HttpCallOptions): Promise<T> {
     const { ak, sk } = await this.provider.getCredentials();
     const region = this.provider.getRegion();
-    const endpoint = REGION_ENDPOINTS[region];
+    const service: CodeArtsService = req.service ?? 'codeartsbuild';
+    const endpoint = resolveEndpoint(service, region);
     if (!endpoint) {
-      throw new ToolException('E_CONFIG', `region="${region}" 无对应 endpoint`, `可用 region: ${Object.keys(REGION_ENDPOINTS).join(', ')}`);
+      const available = SERVICE_REGION_HOSTS[service] ?? {};
+      throw new ToolException(
+        'E_CONFIG',
+        `service="${service}" region="${region}" 无对应 endpoint`,
+        `可用 region: ${Object.keys(available).join(', ')}`,
+      );
     }
 
     const url = new URL(endpoint + req.path);

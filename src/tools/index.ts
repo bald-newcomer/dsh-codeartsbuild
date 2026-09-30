@@ -20,6 +20,7 @@ import { listArtifactsHandler, type ListArtifactsHandlerInput } from '../provide
 import { listTemplatesHandler, type ListTemplatesHandlerInput } from '../providers/codeartsbuild/list-templates.js';
 import { waitBuildHandler, type WaitBuildHandlerInput } from '../providers/codeartsbuild/wait-build.js';
 import { getLogHandler, type GetLogHandlerInput } from '../providers/codeartsbuild/get-log.js';
+import { repoPrepareHandler, type RepoPrepareHandlerInput } from '../providers/codeartsbuild/repo-prepare.js';
 import { repoBuildHandler, type RepoBuildHandlerInput } from '../providers/local-build/index.js';
 import { toDshTool, type InternalToolDef } from './dsh-adapter.js';
 import { TOOL_PARAMETERS } from './parameters.js';
@@ -46,9 +47,10 @@ export function buildTools(): ToolDefinition[] {
     cloudTool<ListRecordsHandlerInput>('codeartsbuild_list_records', '列出构建历史记录（buildProjectId 为 36 位 UUID）', listRecordsHandler),
     cloudTool<GetRecordHandlerInput>('codeartsbuild_get_record', '获取构建记录详情（record_id 供 get_log）', getRecordHandler),
     cloudTool<ListArtifactsHandlerInput>('codeartsbuild_list_artifacts', '列出构建产物（软件包/镜像）', listArtifactsHandler),
-    cloudTool<ListTemplatesHandlerInput>('codeartsbuild_list_templates', '列出官方构建模板', listTemplatesHandler),
+    cloudTool<ListTemplatesHandlerInput>('codeartsbuild_list_templates', '列出用户自定义模板（创建前检查可用模板）', listTemplatesHandler),
     cloudTool<WaitBuildHandlerInput>('codeartsbuild_wait_build', '轮询等待构建进入终态（超时返回 TIMEOUT 非异常）', waitBuildHandler),
     cloudTool<GetLogHandlerInput>('codeartsbuild_get_log', '获取构建日志（自动解压 + 结构化清洗）', getLogHandler),
+    cloudTool<RepoPrepareHandlerInput>('codeartsbuild_repo_prepare', '本地 git 仓库准备 CodeArtsRepo 仓库（检测远端→建仓+回读 RepoInfo，返回 remote_url + 推送指引；实际 push 由模型用宿主命令工具执行）', repoPrepareHandler),
     {
       name: 'codeartsbuild_repo_build',
       description: '本地构建（探测/编译指导/执行/产物/留档 内置）',

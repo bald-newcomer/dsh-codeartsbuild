@@ -1,6 +1,6 @@
 /**
  * 工具结果工具函数（通用，不依赖具体承载层）
- * 对齐 tool-details.md §1.2（错误返回统一格式）
+ * 对齐 FE-03-工具详细设计-20260918.md §1.2（错误返回统一格式）
  */
 import type { ErrorCode } from '../core/types.js';
 import { ToolException } from '../core/types.js';

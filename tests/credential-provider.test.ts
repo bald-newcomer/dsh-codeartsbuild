@@ -1,33 +1,27 @@
 /**
  * credential-provider 单测（Layer 1，mock fs / env，不需网络）
- * 对齐 http-migration-plan.md §2.2 + architecture.md §9.1
+ * 对齐 FE-06-自建HTTP承载切换方案-20260920.md §2.2 + architecture.md §9.1
  *
- * 重点覆盖 M1 修复：hcloud config 密文 AK/SK（非明文格式）检测与 env 回退。
+ * 凭据源：env（CAB_AK/CAB_SK/CAB_REGION）+ file（.dsh-codearts）；hcloud-config 已于 2026-09-30 移除。
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import {
-  HcloudConfigCredentialProvider,
   EnvCredentialProvider,
   createCredentialProvider,
+  readDotDshCodearts,
+  loadFileEnv,
+  resetFileEnvCache,
+  hasDotDshCodearts,
+  DOT_DSH_CODEARTS,
 } from '../src/infra/credential-provider.js';
 import { ToolException } from '../src/core/types.js';
 
 /** 明文 AK/SK（华为云格式：AK 20 位大写字母数字，SK 40 位字母数字） */
 const PLAIN_AK = 'ABCDEFGHIJ1234567890';
 const PLAIN_SK = 'abcdefghijklmnopqrstuvwxyz0123456789abcd';
-const CIPHER_AK = '+NSlZ4uQ8vXk2mP7rT9wYbN5cGd1hJf3Lq6sAe';
-const CIPHER_SK = 'x9Kp2mN7vB4cZ8qW1eR6tY3uI5oP0aL9sD7fG2hJ4kM6n';
-
-/** 在临时目录写 hcloud config fixture，返回 configPath */
-function writeConfig(profile: Record<string, unknown>, extra?: Record<string, unknown>): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cac-provider-test-'));
-  const configPath = path.join(dir, 'config.json');
-  fs.writeFileSync(configPath, JSON.stringify({ profiles: [profile], current: 'default', ...extra }));
-  return configPath;
-}
 
 /** 恢复环境变量快照 */
 const envBackup: Record<string, string | undefined> = {};
@@ -44,127 +38,7 @@ function restoreEnv(keys: string[]) {
 
 afterEach(() => {
   restoreEnv(['CAB_AK', 'CAB_SK', 'CAB_REGION']);
-});
-
-describe('HcloudConfigCredentialProvider（M1 密文检测）', () => {
-  it('明文 AK/SK（20/40 位）应直接使用', async () => {
-    const configPath = writeConfig({
-      name: 'default',
-      accessKeyId: PLAIN_AK,
-      secretAccessKey: PLAIN_SK,
-      region: 'cn-north-4',
-    });
-    const provider = new HcloudConfigCredentialProvider(configPath);
-
-    const creds = await provider.getCredentials();
-    expect(creds).toEqual({ ak: PLAIN_AK, sk: PLAIN_SK });
-    expect(provider.getRegion()).toBe('cn-north-4');
-  });
-
-  it('密文 AK（48 字符非明文格式）应回退环境变量', async () => {
-    saveEnv(['CAB_AK', 'CAB_SK']);
-    process.env.CAB_AK = PLAIN_AK;
-    process.env.CAB_SK = PLAIN_SK;
-    const configPath = writeConfig({
-      name: 'default',
-      accessKeyId: CIPHER_AK,
-      secretAccessKey: CIPHER_SK,
-      region: 'cn-north-4',
-    });
-    const provider = new HcloudConfigCredentialProvider(configPath);
-
-    const creds = await provider.getCredentials();
-    // 密文被识别，回退 env 的明文
-    expect(creds).toEqual({ ak: PLAIN_AK, sk: PLAIN_SK });
-  });
-
-  it('密文且无环境变量应抛 E_CONFIG（明确提示）', async () => {
-    saveEnv(['CAB_AK', 'CAB_SK']);
-    delete process.env.CAB_AK;
-    delete process.env.CAB_SK;
-    const configPath = writeConfig({
-      name: 'default',
-      accessKeyId: CIPHER_AK,
-      secretAccessKey: CIPHER_SK,
-    });
-    const provider = new HcloudConfigCredentialProvider(configPath);
-
-    await expect(provider.getCredentials()).rejects.toMatchObject({
-      code: 'E_CONFIG',
-      message: expect.stringContaining('加密存储'),
-    });
-  });
-
-  it('AK 明文但 SK 缺失应回退 env', async () => {
-    saveEnv(['CAB_AK', 'CAB_SK']);
-    process.env.CAB_AK = PLAIN_AK;
-    process.env.CAB_SK = PLAIN_SK;
-    const configPath = writeConfig({ name: 'default', accessKeyId: PLAIN_AK }); // 无 secretAccessKey
-    const provider = new HcloudConfigCredentialProvider(configPath);
-
-    const creds = await provider.getCredentials();
-    expect(creds).toEqual({ ak: PLAIN_AK, sk: PLAIN_SK });
-  });
-
-  it('config 文件不存在应抛 E_CONFIG', async () => {
-    const provider = new HcloudConfigCredentialProvider(path.join(os.tmpdir(), 'no-such-config.json'));
-    await expect(provider.getCredentials()).rejects.toMatchObject({ code: 'E_CONFIG' });
-  });
-
-  it('config JSON 解析失败应抛 E_CONFIG', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cac-provider-test-'));
-    const configPath = path.join(dir, 'config.json');
-    fs.writeFileSync(configPath, '{invalid json');
-    const provider = new HcloudConfigCredentialProvider(configPath);
-
-    await expect(provider.getCredentials()).rejects.toMatchObject({ code: 'E_CONFIG' });
-  });
-
-  it('无可用 profile 应抛 E_CONFIG', async () => {
-    const configPath = writeConfig({}, { profiles: [] });
-    const provider = new HcloudConfigCredentialProvider(configPath);
-
-    await expect(provider.getCredentials()).rejects.toMatchObject({ code: 'E_CONFIG' });
-  });
-
-  it('凭据应缓存（重复调用不重读文件）', async () => {
-    const configPath = writeConfig({
-      name: 'default',
-      accessKeyId: PLAIN_AK,
-      secretAccessKey: PLAIN_SK,
-    });
-    const provider = new HcloudConfigCredentialProvider(configPath);
-
-    const readSpy = vi.spyOn(fs, 'readFileSync');
-    await provider.getCredentials();
-    readSpy.mockClear();
-    await provider.getCredentials();
-    expect(readSpy).not.toHaveBeenCalled();
-  });
-
-  it('getRegion 在 getCredentials 前应返回默认 cn-north-4', () => {
-    const configPath = writeConfig({
-      name: 'default',
-      accessKeyId: PLAIN_AK,
-      secretAccessKey: PLAIN_SK,
-      region: 'cn-east-3',
-    });
-    const provider = new HcloudConfigCredentialProvider(configPath);
-    // 未调用 getCredentials 时 region 未缓存 → 默认
-    expect(provider.getRegion()).toBe('cn-north-4');
-  });
-
-  it('getRegion 在 getCredentials 后应返回 profile.region', async () => {
-    const configPath = writeConfig({
-      name: 'default',
-      accessKeyId: PLAIN_AK,
-      secretAccessKey: PLAIN_SK,
-      region: 'cn-east-3',
-    });
-    const provider = new HcloudConfigCredentialProvider(configPath);
-    await provider.getCredentials();
-    expect(provider.getRegion()).toBe('cn-east-3');
-  });
+  resetFileEnvCache();
 });
 
 describe('EnvCredentialProvider', () => {
@@ -206,9 +80,8 @@ describe('createCredentialProvider 工厂', () => {
     expect(p).toBeInstanceOf(EnvCredentialProvider);
   });
 
-  it('显式 hcloud-config 源应返回 HcloudConfigCredentialProvider', () => {
-    const p = createCredentialProvider('hcloud-config');
-    expect(p).toBeInstanceOf(HcloudConfigCredentialProvider);
+  it('显式 hcloud-config 源应抛 E_CONFIG（已移除）', () => {
+    expect(() => createCredentialProvider('hcloud-config' as never)).toThrow(ToolException);
   });
 
   it('未知源应抛 E_CONFIG', () => {
@@ -222,10 +95,105 @@ describe('createCredentialProvider 工厂', () => {
     expect(p).toBeInstanceOf(EnvCredentialProvider);
   });
 
-  it('缺省且无 CAB_AK 应默认 hcloud-config', () => {
+  it('缺省且无 CAB_AK + cwd 无 .dsh-codearts 应抛 E_CONFIG', () => {
     saveEnv(['CAB_AK']);
     delete process.env.CAB_AK;
-    const p = createCredentialProvider();
-    expect(p).toBeInstanceOf(HcloudConfigCredentialProvider);
+    // 在无 .dsh-codearts 的临时目录运行（仓库根目录可能被真实凭据文件污染）
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cac-provider-nofile-'));
+    const originalCwd = process.cwd();
+    process.chdir(dir);
+    try {
+      expect(() => createCredentialProvider()).toThrow(ToolException);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+});
+
+describe('.dsh-codearts 文件源（2026-09-28）', () => {
+  /** 在临时目录写 .dsh-codearts，返回目录路径 */
+  function writeDotDshCodearts(content: string): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cac-dshcodearts-'));
+    fs.writeFileSync(path.join(dir, DOT_DSH_CODEARTS), content);
+    return dir;
+  }
+
+  it('readDotDshCodearts 应解析 key=value 行，忽略空行与 # 注释', () => {
+    const dir = writeDotDshCodearts(
+      `# 注释行\nCAB_AK=${PLAIN_AK}\nCAB_SK=${PLAIN_SK}\n\nCAB_REGION=cn-east-2\n`,
+    );
+    const entries = readDotDshCodearts(dir);
+    expect(entries).toEqual({
+      CAB_AK: PLAIN_AK,
+      CAB_SK: PLAIN_SK,
+      CAB_REGION: 'cn-east-2',
+    });
+  });
+
+  it('readDotDshCodearts 无文件应返回 null', () => {
+    expect(readDotDshCodearts(os.tmpdir())).toBeNull();
+  });
+
+  it('loadFileEnv 应合入 env（已有环境变量优先不覆盖）', () => {
+    saveEnv(['CAB_AK', 'CAB_SK', 'CAB_REGION']);
+    process.env.CAB_AK = 'ENV_AK_VALUE'; // 环境变量已存在
+    const dir = writeDotDshCodearts(
+      `CAB_AK=${PLAIN_AK}\nCAB_SK=${PLAIN_SK}\nCAB_REGION=cn-east-2\n`,
+    );
+    loadFileEnv(dir);
+    // CAB_AK 已存在 → 不被覆盖；其余合入
+    expect(process.env.CAB_AK).toBe('ENV_AK_VALUE');
+    expect(process.env.CAB_SK).toBe(PLAIN_SK);
+    expect(process.env.CAB_REGION).toBe('cn-east-2');
+  });
+
+  it('createCredentialProvider 显式 file 源应加载文件并经 env 读取凭据', async () => {
+    saveEnv(['CAB_AK', 'CAB_SK', 'CAB_REGION']);
+    delete process.env.CAB_AK;
+    delete process.env.CAB_SK;
+    delete process.env.CAB_REGION;
+    const dir = writeDotDshCodearts(`CAB_AK=${PLAIN_AK}\nCAB_SK=${PLAIN_SK}\nCAB_REGION=cn-east-2\n`);
+    const originalCwd = process.cwd();
+    process.chdir(dir);
+    try {
+      const p = createCredentialProvider('file');
+      expect(p).toBeInstanceOf(EnvCredentialProvider);
+      const creds = await p.getCredentials();
+      expect(creds).toEqual({ ak: PLAIN_AK, sk: PLAIN_SK });
+      expect(p.getRegion()).toBe('cn-east-2');
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  it('缺省且无 CAB_AK + cwd 有 .dsh-codearts 应默认 file 源', async () => {
+    saveEnv(['CAB_AK']);
+    delete process.env.CAB_AK;
+    const dir = writeDotDshCodearts(`CAB_AK=${PLAIN_AK}\nCAB_SK=${PLAIN_SK}\n`);
+    const originalCwd = process.cwd();
+    process.chdir(dir);
+    try {
+      expect(hasDotDshCodearts()).toBe(true);
+      const p = createCredentialProvider();
+      expect(p).toBeInstanceOf(EnvCredentialProvider);
+      const creds = await p.getCredentials();
+      expect(creds).toEqual({ ak: PLAIN_AK, sk: PLAIN_SK });
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  it('缺省且无 CAB_AK + cwd 无 .dsh-codearts 应抛 E_CONFIG', () => {
+    saveEnv(['CAB_AK']);
+    delete process.env.CAB_AK;
+    // 临时空目录（无 .dsh-codearts）→ 无可用凭据源 → E_CONFIG
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cac-provider-nofile2-'));
+    const originalCwd = process.cwd();
+    process.chdir(dir);
+    try {
+      expect(() => createCredentialProvider()).toThrow(ToolException);
+    } finally {
+      process.chdir(originalCwd);
+    }
   });
 });

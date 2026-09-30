@@ -1,6 +1,6 @@
 /**
  * codeartsbuild_get_log 工具 handler
- * 对齐 api-contract.md §2.15（DownloadBuildFullLog，GET /v1/log/{record_id}/download-log）+ log-cleaner.md
+ * 对齐 api-contract.md §2.15（DownloadBuildFullLog，GET /v1/log/{record_id}/download-log）+ FE-02-日志清洗器规范-20260918.md
  *
  * 流程：recordId 校验 → HTTP 下载（rawBinary）→ ZIP 识别解压（PK 头，取 message.txt）→ 清洗建模。
  * 调用约束：仅构建失败或用户显式要求时调用（SKILL 强制约束 #5）。

@@ -1,6 +1,6 @@
 /**
  * 本地构建 — 仓库类型探测
- * 对齐 repo-analyzer.md §4.2（轻量探测语言/构建工具）
+ * 对齐 FE-01-本地代码仓构建流程设计-20260919.md §4.2（轻量探测语言/构建工具）
  */
 import fs from 'node:fs';
 import path from 'node:path';

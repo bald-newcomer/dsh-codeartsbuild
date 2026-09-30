@@ -1,6 +1,6 @@
 /**
  * 日志清洗器 — 将原始构建日志清洗为结构化模型
- * 对齐 log-cleaner.md（§4 处理流水线 / §5 错误分类 / §8 安全脱敏）
+ * 对齐 FE-02-日志清洗器规范-20260918.md（§4 处理流水线 / §5 错误分类 / §8 安全脱敏）
  *
  * 输入为解压后的纯文本（get_log 工具层完成 ZIP 解压）；根因分析交给 LLM。
  */
@@ -15,7 +15,7 @@ export interface CleanLogInput {
   errorFocus?: boolean;
 }
 
-/** 清洗输出 Schema（log-cleaner.md §3.2） */
+/** 清洗输出 Schema（FE-02-日志清洗器规范-20260918.md §3.2） */
 export interface CleanLogResult {
   job_key: string | null;
   resource_pool: string | null;
@@ -45,7 +45,7 @@ export interface CleanLogResult {
   task_states: Array<{ state: string; status: string }>;
 }
 
-/** 行格式：`[时间戳] [级别] [步骤标识] : 内容`（log-cleaner.md §2.1） */
+/** 行格式：`[时间戳] [级别] [步骤标识] : 内容`（FE-02-日志清洗器规范-20260918.md §2.1） */
 interface LogLine {
   line: number;
   level: string;
@@ -53,7 +53,7 @@ interface LogLine {
   content: string;
 }
 
-/** 错误分类表（log-cleaner.md §5.1，优先级从高到低） */
+/** 错误分类表（FE-02-日志清洗器规范-20260918.md §5.1，优先级从高到低） */
 const ERROR_CLASSIFIERS: Array<{ type: string; pattern: RegExp }> = [
   { type: 'DOCKER_BUILD_FAILED', pattern: /docker build|docker command failed|unable to prepare context|BuildDockerException|Docker build image failed/i },
   { type: 'DOCKER_PULL_FAILED', pattern: /docker pull|pull access denied|manifest unknown|Get .*: denied/i },
@@ -70,7 +70,7 @@ const ERROR_CLASSIFIERS: Array<{ type: string; pattern: RegExp }> = [
 /** CodeArtsBuild 错误码：DEV.CB.0210043 等 */
 const ERROR_CODE_RE = /\b[A-Z]{2,}\.[A-Z]{2,}\.\d{4,}\b/;
 
-/** 脱敏规则（log-cleaner.md §8） */
+/** 脱敏规则（FE-02-日志清洗器规范-20260918.md §8） */
 const SANITIZERS: Array<{ pattern: RegExp; replace: string }> = [
   { pattern: /AKID[0-9A-Za-z]{16,}/g, replace: '***' },
   { pattern: /SKID[0-9A-Za-z]{16,}/g, replace: '***' },

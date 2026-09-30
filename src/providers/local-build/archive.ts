@@ -1,12 +1,12 @@
 /**
  * 本地构建 — 过程留档
- * 对齐 repo-analyzer.md §6（每次构建必须留档）
+ * 对齐 FE-01-本地代码仓构建流程设计-20260919.md §6（每次构建必须留档）
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import type { LocalArtifact } from './artifact.js';
 
-/** 留档记录结构（repo-analyzer.md §6.2） */
+/** 留档记录结构（FE-01-本地代码仓构建流程设计-20260919.md §6.2） */
 export interface BuildArchiveRecord {
   record_id: string;
   status: string;

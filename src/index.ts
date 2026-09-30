@@ -17,7 +17,6 @@ export {
 export { HttpClient } from './infra/http-client.js';
 export {
   createCredentialProvider,
-  HcloudConfigCredentialProvider,
   EnvCredentialProvider,
   type CredentialProvider,
   type CredentialSource,

@@ -24,7 +24,7 @@ export interface ListArtifactsHandlerInput {
   buildNo: number;
 }
 
-/** package_type → language 推断（tool-details.md §2.11） */
+/** package_type → language 推断（FE-03-工具详细设计-20260918.md §2.11） */
 const PACKAGE_TYPE_LANGUAGE: Record<string, string> = {
   jar: 'Java',
   py: 'Python',

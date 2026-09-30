@@ -13,14 +13,14 @@
 |------|------|------|
 | v0.1.0 | 2026-09-17 | 初始变更记录（汇总 2026-09-15 ~ 09-17 设计演进） |
 | v0.2.8 | 2026-09-18 | **v4 禁用 + 逐项优化**：接口禁用规则扩至 v3/v4 一律禁用（仅 v1 推荐）；get_status 落定 `ShowJobBuildRecordDetail`；工作流一去 `list_projects`；projectId 会话级传递规约澄清；log-cleaner 补 ZIP 解压；组装器路径统一；运维文档/PRD 产物交付对齐 |
-| v0.2.9 | 2026-09-18 | **模板验证测试套件方案设计（待办 #15 设计完成）**：新增 `docs/design/template-validation-suite.md` v0.1.0（17 组合 + 7 边界 = 24 用例、分层执行、断言 16 条 + 字段映射 12 条、失败 3 轮修正闭环、覆盖率指标、与 #16 联动） |
+| v0.2.9 | 2026-09-18 | **模板验证测试套件方案设计（待办 #15 设计完成）**：新增 `docs/design/TEST-01-模板验证测试套件设计-20260918.md` v0.1.0（17 组合 + 7 边界 = 24 用例、分层执行、断言 16 条 + 字段映射 12 条、失败 3 轮修正闭环、覆盖率指标、与 #16 联动） |
 | v0.3.0 | 2026-09-19 | **冗余消除（评估建议执行）**：架构 v0.7.9（§2.1 用户故事引用 PRD）、repo-analyzer v0.2.4（命令语义注释）、errors v0.2.1（错误分类引用化 + 修正 LOGIN_FAILED 重复）、auth v0.2.1（env 表引用化）、step-templates 不维护清单收敛为 §1、SKILL 配置注释与参考版本同步 |
 | v0.2.0 | 2026-09-18 | openapi.yaml 输入输出对齐（契约 v0.4.8 / 架构 v0.7.6 / tool-details v0.2.0） |
 | v0.2.1 | 2026-09-18 | KooCLI 实调用确认（待办 #1 完成：契约 v0.4.9 / 架构 v0.7.7 / tool-details v0.2.1） |
-| v0.2.2 | 2026-09-18 | Step 模板库（step-templates.md v0.1.0：官方模板拆解 33 个，各语言核心 step + 默认 properties） |
-| v0.2.3 | 2026-09-18 | Step 模板引擎设计 + step 索引落地（step-templates.md v0.5.0→v0.6.0；待办 #13 完成：36 插件抽取 → step-index.json） |
-| v0.2.4 | 2026-09-18 | **不维护插件过滤**（用户确认 16 个"支持不好的构建"不维护，**直接删除**出模板/create_job 并注明；step-templates.md v0.6.0→v0.6.2：§1/§2/§4 删除不维护插件、§7.1 过滤说明、step-index.json 过滤为 20 条；tool-details.md §3.3 白名单删除并修正 Bazel `20054`→删除） |
-| v0.2.5 | 2026-09-18 | **step 模板 + config 模板落地（待办 #14 完成）**：step-templates.md v0.6.2→v0.7.0；产出 `docs/example/step-templates.json`（14 个常用 step 模板，properties=default_properties+必填占位）与 `docs/example/config-template.json`（CreateNewJob 请求体骨架，占位符注入）；生成脚本 `docs/example/generate-templates.py`；§7.2/§7.3 设计→落地 |
+| v0.2.2 | 2026-09-18 | Step 模板库（FE-04-Step模板库拆解-20260918.md v0.1.0：官方模板拆解 33 个，各语言核心 step + 默认 properties） |
+| v0.2.3 | 2026-09-18 | Step 模板引擎设计 + step 索引落地（FE-04-Step模板库拆解-20260918.md v0.5.0→v0.6.0；待办 #13 完成：36 插件抽取 → step-index.json） |
+| v0.2.4 | 2026-09-18 | **不维护插件过滤**（用户确认 16 个"支持不好的构建"不维护，**直接删除**出模板/create_job 并注明；FE-04-Step模板库拆解-20260918.md v0.6.0→v0.6.2：§1/§2/§4 删除不维护插件、§7.1 过滤说明、step-index.json 过滤为 20 条；FE-03-工具详细设计-20260918.md §3.3 白名单删除并修正 Bazel `20054`→删除） |
+| v0.2.5 | 2026-09-18 | **step 模板 + config 模板落地（待办 #14 完成）**：FE-04-Step模板库拆解-20260918.md v0.6.2→v0.7.0；产出 `docs/example/step-templates.json`（14 个常用 step 模板，properties=default_properties+必填占位）与 `docs/example/config-template.json`（CreateNewJob 请求体骨架，占位符注入）；生成脚本 `docs/example/generate-templates.py`；§7.2/§7.3 设计→落地 |
 | v0.2.6 | 2026-09-18 | **模板组装工程化（评估定案）**：组装为**工程实现**（bundle 内 template-assembler.ts，非 LLM 手工拼 steps），SKILL 仅加规约不加新 skill；契约 v0.4.9→v0.5.0（create_job 增 language/stepOverrides/appendSteps，steps 与 language 二选一）、tool-details v0.2.1→v0.2.2（§3.4 组装器设计 + 伪代码）、step-templates v0.7.0→v0.7.1（§7.4 语言→组合映射表 + 组装流程）、SKILL.md（create_job 关键入参 + 强制规约 + 意图 1 模板化创建说明） |
 | v0.2.7 | 2026-09-18 | **意图输入修正（stepsPlan）**：意图输入需定义**步骤顺序 + 每步参数**，非仅 language；create_job 改 `stepsPlan`（`[{ step, properties? }]`，数组顺序即步骤顺序 + 参数覆盖）为**推荐入参**，`language` 降为速选默认组合，`steps` 原样透传（最高优先），移除 stepOverrides/appendSteps；契约 v0.5.0→v0.5.1、tool-details v0.2.2→v0.2.3（§3.4 resolveStep/assembleSteps 伪代码）、step-templates v0.7.1→v0.7.2（§7.4 stepsPlan 示例）、SKILL.md（stepsPlan 规约 + 意图 1 示例） |
 
@@ -30,19 +30,23 @@
 
 | 文档 | 版本 | 日期 |
 |------|------|------|
-| 架构设计 | v0.7.9 | 2026-09-19 |
-| 工具接口契约 | v0.5.2 | 2026-09-18 |
-| 认证说明 | v0.2.1 | 2026-09-19 |
-| 代码仓构建流程 | v0.2.4 | 2026-09-19 |
-| 日志清洗器 | v0.2.1 | 2026-09-18 |
-| 工具详细设计 | v0.3.0 | 2026-09-18 |
-| Step 模板库 | v0.7.2 | 2026-09-18 |
-| 模板验证测试套件 | v0.1.0 | 2026-09-18 |
-| 使用指南 | v0.2.0 | 2026-09-18 |
-| 错误码排查 | v0.2.1 | 2026-09-19 |
+| 架构设计 | v0.8.0 | 2026-09-20 |
+| 工具接口契约 | v0.6.0 | 2026-09-20 |
+| 认证说明 | v0.3.0 | 2026-09-20 |
+| 代码仓构建流程（FE-01） | v0.2.4 | 2026-09-19 |
+| 日志清洗器（FE-02） | v0.2.1 | 2026-09-18 |
+| 工具详细设计（FE-03） | v0.3.0 | 2026-09-18 |
+| Step 模板库（FE-04） | v0.7.2 | 2026-09-18 |
+| 承载方案评审决策（FE-05） | 已决策 | 2026-09-20 |
+| 自建 HTTP 承载切换方案（FE-06） | v0.1.0 | 2026-09-20 |
+| 模板验证测试套件（TEST-01） | v0.1.0 | 2026-09-18 |
+| Layer 2 全工具实调测试（TEST-02） | v0.4.0 | 2026-09-21 |
+| 用户故事集成测试（TEST-03） | v0.1.0 | 2026-09-21 |
+| 使用指南 | v0.3.0 | 2026-09-20 |
+| 错误码排查 | v0.3.0 | 2026-09-20 |
 | 需求说明（PRD） | v0.2.0 | 2026-09-18 |
 | 产物规范 | v0.2.2 | 2026-09-18 |
-| 风险合规 | v0.2.0 | 2026-09-18 |
+| 风险合规 | v0.3.0 | 2026-09-20 |
 
 ---
 
@@ -81,14 +85,14 @@
 | v0.4.4 | wait_build 轮询参数补齐 |
 | v0.4.5 | repo_build→create_job 映射契约 |
 | v0.4.6 | 产物统一结构体 |
-| v0.4.7 | 工具详细设计落地（tool-details.md） |
+| v0.4.7 | 工具详细设计落地（FE-03-工具详细设计-20260918.md） |
 | v0.4.8 | openapi.yaml 输入输出对齐（arch 枚举/module_id 全限定名/run_job 响应/delete 方法/分页/workflow.status/产物字段） |
 | v0.4.9 | KooCLI 实调用确认（§8 逐项：record_id 对应/ListRecords UUID/ExecuteJob 分支/Delete HTTP DELETE/状态枚举冲突/CreateNewJob steps 必填/日志 ZIP） |
 | v0.5.0 | 模板化组装入参（create_job 增 `language`/`stepOverrides`/`appendSteps`；steps 与 language 二选一，显式 steps 优先；模板组装由工具内组装器实现） |
 | v0.5.1 | **意图输入修正**：create_job 改 `stepsPlan`（意图级步骤计划：`[{ step, properties? }]`，数组顺序即步骤顺序 + 每步参数覆盖）为推荐入参；`language` 降为速选默认组合；`steps` 原样透传（最高优先）；移除 `stepOverrides`/`appendSteps` |
 | v0.5.2 | v4 禁用（v3/v4 一律禁用，仅 v1）；get_status 落定 ShowJobBuildRecordDetail（§8 #7 关闭）；工作流一去 list_projects；§7 G3 单链接；§1.2 去 MCP；repo_build 路径修正 |
 
-## 4. 本地构建流程演进（repo-analyzer.md）
+## 4. 本地构建流程演进（FE-01-本地代码仓构建流程设计-20260919.md）
 
 | 版本 | 关键变更 |
 |------|----------|
@@ -98,14 +102,14 @@
 | v0.2.2 | recommended_steps 同构映射 |
 | v0.2.3 | module_id 全限定名对齐（openapi.yaml） |
 
-## 5. 日志清洗演进（log-cleaner.md）
+## 5. 日志清洗演进（FE-02-日志清洗器规范-20260918.md）
 
 | 版本 | 关键变更 |
 |------|----------|
 | v0.1.0 | 通用日志假设（五步流水线） |
 | v0.2.0 | 基于真实样本（j_KiBa9Q4j）重设计：job_key/资源池/步骤/错误码/Finished |
 
-## 5.1 工具详细设计演进（tool-details.md）
+## 5.1 工具详细设计演进（FE-03-工具详细设计-20260918.md）
 
 | 版本 | 关键变更 |
 |------|----------|
@@ -115,11 +119,11 @@
 | v0.2.2 | 模板化组装设计：§3.2 入参增 language/stepOverrides/appendSteps、§3.4 工程内组装器（selectTemplates/assembleSteps/assembleConfig/validateSteps + 伪代码） |
 | v0.2.3 | stepsPlan 意图输入：§3.2 入参改 stepsPlan（推荐）/language（速选）/steps（透传）三选一、§3.4 组装器 resolveStep/assembleSteps 伪代码（顺序=数组顺序 + 参数覆盖） |
 
-## 5.2 Step 模板库演进（step-templates.md）
+## 5.2 Step 模板库演进（FE-04-Step模板库拆解-20260918.md）
 
 | 版本 | 关键变更 |
 |------|----------|
-| v0.1.0 | 官方模板拆解：`ListOfficialTemplate` 实测 33 个模板，提取各语言核心 step（module_id 全限定名 + 默认 properties）+ 通用附加 step（上传软件包 `20018`/制作镜像推 SWR `20004`）；语言 → 推荐步骤组合表；tool-details.md §3.3 白名单同步 |
+| v0.1.0 | 官方模板拆解：`ListOfficialTemplate` 实测 33 个模板，提取各语言核心 step（module_id 全限定名 + 默认 properties）+ 通用附加 step（上传软件包 `20018`/制作镜像推 SWR `20004`）；语言 → 推荐步骤组合表；FE-03-工具详细设计-20260918.md §3.3 白名单同步 |
 | v0.2.0 | **action 参数定义对齐**：各 step 的 properties 字段定义/image 可选值/必填项以 action 元数据实测为准（`codeci_action_XXXXX` ↔ module_id 一一对应）；upload `20018` 补全 7 字段、buildImage `20004` 补 organization、新增 OBS step（`20057` 上传 / `20063` 下载，契约 §8 #2 OBS 闭环）、各语言 image 可选值清单（Maven 10/npm 13/go 15/python 9 等） |
 | v0.3.0 | **ListModulesDetail 实时接口对齐**：`CodeArtsPipeline ListModulesDetail` 实测 36 个插件（§7）；修正 Bazel uuid `20055`→`20054`、Grails/Ant/Gnu-arm image 可选值扩展、execution 内部流水线（Maven=preMaven→构建→postMaven 等）；新增插件 Flutter `20062`/Kotlin `20072`/单元测试报告 `20071`/执行Docker命令 `20035`/Android APK签名 `20033` 等；原始响应存 docs/example/modules-detail.json |
 | v0.4.0 | **去冗余重构**：合并模板全景与推荐组合为 §1（标准组合并入推荐表，变体单列）；image 可选值统一至 §4 权威清单（§2 仅留 JSON 默认值）；§5 精简为关键关系（OBS/Bazel/映射）；§7→§4 实时插件清单；引用同步（tool-details/api-contract） |
@@ -139,8 +143,8 @@
 |------|--------|
 | 2026-09-15 | 架构草案（MCP 方案）→ 重构（业务抽象 + Harness 为主） |
 | 2026-09-16 | KooCLI 实测（v7.2.12，130+ 操作）；v3 禁用/v1 优先；真实日志驱动 log-cleaner 重设计 |
-| 2026-09-17 | 专注 dsh（去 MCP）；本地构建域收敛；命名规约；补齐架构缺口 #4-#9；文档序列（usage/errors/prd/artifacts/risk/changelog）；工具详细设计（tool-details.md） |
-| 2026-09-18 | openapi.yaml 输入输出对齐（契约 v0.4.8 / 架构 v0.7.6 / tool-details v0.2.0 / SKILL 同步）；KooCLI 实调用确认（待办 #1 完成：契约 v0.4.9 / 架构 v0.7.7 / tool-details v0.2.1 / 状态枚举 §4 修订）；官方模板拆解生成 Step 模板库（step-templates.md v0.1.0，33 模板）；action 参数定义对齐优化模板字段（step-templates v0.2.0）；ListModulesDetail 实时接口对齐（step-templates v0.3.0：36 插件、execution 流水线）；step-templates v0.4.0 去冗余重构；step-templates v0.5.0 模板引擎设计（待办 #13-#16 设计落地）；**v4 禁用 + 逐项优化**（契约 v0.5.2 / 架构 v0.7.8 / tool-details v0.3.0 / log-cleaner v0.2.1 / SKILL / 运维文档 / PRD 同步） |
+| 2026-09-17 | 专注 dsh（去 MCP）；本地构建域收敛；命名规约；补齐架构缺口 #4-#9；文档序列（usage/errors/prd/artifacts/risk/changelog）；工具详细设计（FE-03-工具详细设计-20260918.md） |
+| 2026-09-18 | openapi.yaml 输入输出对齐（契约 v0.4.8 / 架构 v0.7.6 / tool-details v0.2.0 / SKILL 同步）；KooCLI 实调用确认（待办 #1 完成：契约 v0.4.9 / 架构 v0.7.7 / tool-details v0.2.1 / 状态枚举 §4 修订）；官方模板拆解生成 Step 模板库（FE-04-Step模板库拆解-20260918.md v0.1.0，33 模板）；action 参数定义对齐优化模板字段（step-templates v0.2.0）；ListModulesDetail 实时接口对齐（step-templates v0.3.0：36 插件、execution 流水线）；step-templates v0.4.0 去冗余重构；step-templates v0.5.0 模板引擎设计（待办 #13-#16 设计落地）；**v4 禁用 + 逐项优化**（契约 v0.5.2 / 架构 v0.7.8 / tool-details v0.3.0 / log-cleaner v0.2.1 / SKILL / 运维文档 / PRD 同步） |
 
 ---
 

@@ -3,31 +3,19 @@
 > **文档编号**: CAB-CONTRACT-001  
 > **版本**: v0.6.0（迭代由用户决定）  
 > **日期**: 2026-09-20  
-> **状态**: 待人工评审确认  
+> **状态**: 待评审  
 > **前置依赖**: 架构设计（`docs/architecture/architecture.md`）  
+> **工具契约拆分**：各工具详细契约见 `docs/api/tools/*.md`（§2.0 索引）
 
 ## 修订记录
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v0.1.0 | 2026-09-15 | 初始契约草案（16 个工具） |
-| v0.2.0 | 2026-09-16 | 工具契约人工确定：基于 KooCLI v7.2.12 实测对齐；状态枚举去除 INITIALIZING/ABORTED |
-| v0.3.0 | 2026-09-16 | **禁止使用过时/待下线/旧版接口**：新增 §1.4 接口禁用规则与禁用清单；各工具映射对齐到推荐接口 |
-| v0.3.1 | 2026-09-16 | 恢复 §2 大标题；为 2.1-2.15 各工具补充实测 URL（Path） |
-| v0.4.0 | 2026-09-16 | **工具全景与工作流**：移除 §2.16 旧版 analyze_repo，新增本地构建域工具；重写 §6 工作流编排（主流程/诊断/交互升级） |
-| v0.4.1 | 2026-09-16 | **本地构建域收敛为 1 工具**：`repo_probe`/`repo_dependency`/`repo_artifact`/`repo_archive` 合并入 `repo_build`（探测+编译指导+执行+产物+留档内置），编译过程由模型自决 |
-| v0.4.2 | 2026-09-16 | **统一命名规约**：新增 §1.2.1；重命名 `list_history`→`list_records`、`get_history_detail`→`get_record`、`wait_for_build`→`wait_build`、`get_build_log`→`get_log` |
-| v0.4.3 | 2026-09-17 | **人工评审补充说明与接口调整**：各工具新增 `description` 字段（§2）；`get_record`→`ShowJobBuildRecordDetail`（v1）、`list_artifacts`→`ShowNewOutput`（v1 `/v1/job/{job_id}/{build_no}/output`，**KooCLI 未封装，需手动调用**）、`list_templates`→`ListOfficialTemplate`（v1）、`get_log`→`DownloadBuildFullLog`（v1）；`stop_job`/`get_status` 补充 buildNo；`list_projects`/`get_record` 更新为实测响应示例 |
-| v0.4.4 | 2026-09-17 | **wait_build 轮询参数补齐（待办 #4）**：§2.14 新增轮询策略（指数退避 ×1.5 / maxBackoffMs 上限 30s / 总超时 30min-2h）、超时后行为（返回 `TIMEOUT` 非异常 + last_status）、网络抖动重试 ≤2 次 |
-| v0.4.5 | 2026-09-17 | **repo_build→create_job 映射契约（待办 #5）**：§2.16 输出新增 `recommended_steps`（与 create_job.steps 同构），定义 repo_type→module_id 默认映射与直接可用规约 |
-| v0.4.6 | 2026-09-17 | **产物统一结构体**：§2.12 新增规范化产物输出（type 按介质 obs/image/artifact + record_id + language + console_url）；下载策略——当前不提供下载（download_url 需 token），仅 console_url 跳转查看 |
-| v0.4.7 | 2026-09-17 | **工具详细设计落地（待办 #11）**：新增 `docs/design/tool-details.md`（16 工具详细设计；简单接口从简，create_job 详尽——参数组装/模板化/recommended_steps 映射/module_id 白名单/校验规则）；本契约仍为唯一事实来源，详细设计不一致以本契约为准 |
-| v0.4.8 | 2026-09-18 | **openapi.yaml 输入输出对齐**：对照 `docs/example/openapi.yaml` 修正各工具——create_job arch 枚举 `x86-64`/`arm`、steps module_id **全限定名**、parameters **双层结构**、新增 hostType/buildConfigType/sourceCode 等字段；run_job 请求字段 `parameter`（单数）+ 响应 `octopus_job_name`/`actual_build_number`；delete_job HTTP **DELETE**；stop_job 响应仅 status；list_records 分页 `page`+`limit` + `result.data`；list_jobs 响应 `result.job_list` + build_status 枚举；get_job 新增 get_all_params；get_status `result.workflow.status`；list_artifacts `package_infos`/`image_infos`（无 obs）；list_templates `result.items`；§8 待确认项同步更新（含状态枚举 ABORTED 冲突 #8） |
-| v0.4.9 | 2026-09-18 | **KooCLI 实调用确认（待办 #1）**：§8 逐项实测确认——record_id 对应（build_record_id=ListRecords.id）✅、ShowNewOutput KooCLI 未封装（需 token 手动调用）⚠️、ShowJobStepStatus workflow.status（running 实测）✅、ExecuteJob 无 scm.branch（分支经 parameter）✅、ListRecords build_project_id 为 36 位 UUID + page/limit 透传 ✅、DeleteTheJob HTTP DELETE + StopTheJob body build_no ✅、ShowRunningStatus 建议作 get_status 替换候选 ⚠️、状态枚举含 STARTED/ABORTED/red/blue 冲突 ✅；新增确认项 #9 CreateNewJob steps KooCLI 必填、#10 DownloadBuildFullLog 返回 ZIP 需解压 |
-| v0.5.0 | 2026-09-18 | **模板化组装入参**：create_job 增 `language`/`stepOverrides`/`appendSteps`；steps 与 language 二选一，显式 steps 优先；模板组装由工具内组装器实现 |
-| v0.5.1 | 2026-09-18 | **意图输入修正**：create_job 改 `stepsPlan`（意图级步骤计划：`[{ step, properties? }]`，**数组顺序即步骤顺序 + 每步参数覆盖**）为推荐入参；`language` 降为速选默认组合；`steps` 原样透传（最高优先）；移除 `stepOverrides`/`appendSteps`（stepsPlan 已覆盖） |
-| v0.5.2 | 2026-09-18 | **v4 禁用 + 一致性修复**：① §1.4 禁用规则扩至 **v3/v4 一律禁用，仅 v1 推荐**（`ShowRecordDetail`/`DownloadBuildLog`/`DownloadTaskLog` 入禁用表，替代改 v1 `ShowJobBuildRecordDetail`/`DownloadBuildFullLog`）；② §2.9 `get_status` 落定改用 `ShowJobBuildRecordDetail`（v1，单值 `result.status` 易解析，替换待定 #7 关闭）；③ §6.2 工作流一去 `list_projects`（projectId 由用户/会话上下文提供）；④ §7 一致性 G3 改单链接（console_url，当前不提供下载）；⑤ §1.2 移除 MCP Server 传输表述（专注 dsh）；⑥ §2.4 projectId 标注缺省取会话上下文；⑦ §2.16 repo_build 实现路径改 `src/providers/local-build/` |
-| v0.6.0 | 2026-09-20 | **承载反转（SDK → 自建 HTTP）**：§1.2 通用约定改为「自建 HTTP 承载 + AK/SK 签名」；§1.4.3 白名单注记 ShowNewOutput 改「HTTP 承载统一实现」；§2 各工具 KooCLI 操作列标注「承载无关，仅作接口标识」；§8 #2 更新 ShowNewOutput 实现说明（不再需 token，AK/SK 签名） |
+| v0.2.0 | 2026-09-16 | **契约人工确定**：KooCLI v7.2.12 实测对齐；状态枚举去除 INITIALIZING/ABORTED；新增 §1.4 接口禁用规则（v3 旧版禁用）；各工具补充实测 URL |
+| v0.4.0 | 2026-09-16 ~ 09-18 | **工具全景与细节落地**：移除旧版 analyze_repo、本地构建域收敛为 `repo_build`、统一命名规约（§1.2.1）；各工具补 description/接口调整（get_record→ShowJobBuildRecordDetail、list_artifacts→ShowNewOutput、get_log→DownloadBuildFullLog 等）；wait_build 轮询策略、recommended_steps 映射、产物统一结构体；openapi.yaml 输入输出对齐；KooCLI 实调用确认（record_id 对应/ListRecords UUID/ExecuteJob 分支/HTTP 方法/状态枚举冲突） |
+| v0.5.0 | 2026-09-18 | **模板化组装 + v4 禁用**：create_job 增 stepsPlan 意图级入参（language 降速选、steps 原样透传）；禁用规则扩至 v3/v4 一律禁用（仅 v1）；get_status 落定 `ShowJobBuildRecordDetail` |
+| v0.6.0 | 2026-09-20 | **承载反转（SDK → 自建 HTTP）**：§1.2 通用约定改为「自建 HTTP 承载 + AK/SK 签名」；各工具 KooCLI 操作列标注「承载无关，仅作接口标识」；ShowNewOutput 同构实现（不再需 token） |
 
 ---
 
@@ -40,7 +28,7 @@
 ### 1.2 通用约定
 
 - **传输**：dsh 插件（唯一终端形态）原生注册工具，共用同一契约
-- **华为云调用**：所有工具底层经**自建 HTTP 客户端**承载（`fetch` + `AKSKSigner` AK/SK 签名，见 `src/infra/http-client.ts`）；HTTP method/URL 以本契约 §2 各工具标注为准
+- **华为云调用**：所有工具底层经**自建 HTTP 客户端**承载（`fetch` + `AKSKSigner` AK/SK 签名，见 `src/infra/http-client.ts`）；HTTP method/URL 以各工具文档（§2.0 索引）标注为准
 - **错误返回**：所有工具失败统一返回错误格式（见 §3）
 - **字段命名**：JSON 输出使用 camelCase（与工具调用惯例一致），底层原始输出中的 snake_case 字段经适配层转换
 
@@ -67,9 +55,9 @@
 
 ### 1.3 接口实测说明
 
-**来源**：2026-09-16 KooCLI v7.2.12 实测（`hcloud CodeArtsBuild --help` + `~/.hcloud/metaRepo/template/codeartsbuild/*.yaml` 的 `Request.Path`/`Request.Medthod`）+ 2026-09-18 openapi.yaml 对齐 + KooCLI 实调用确认（待办 #1）。
+**来源**：2026-09-16 KooCLI v7.2.12 实测（`hcloud CodeArtsBuild --help` + `~/.hcloud/metaRepo/template/codeartsbuild/*.yaml` 的 `Request.Path`/`Request.Medthod`）+ 2026-09-18 openapi.yaml 对齐 + KooCLI 实调用确认。
 
-已实测确认的操作、URL、参数见 §2 各工具。`record_id` 获取路径见 §2.15 备注。承载方式（KooCLI / SDK / 自建 HTTP）不影响 URL 与参数定义，实现以 URL 直接构造请求。
+已实测确认的操作、URL、参数见各工具文档（§2.0 索引）。`record_id` 获取路径见 `get_record` / `get_log` 文档。承载方式（KooCLI / SDK / 自建 HTTP）不影响 URL 与参数定义，实现以 URL 直接构造请求。
 
 ### 1.4 接口禁用规则（过时 / 待下线 / 旧版）
 
@@ -107,7 +95,7 @@
 | `ShowRecordDetail` | `/v4/jobs/{id}/{no}/record-info` | `ShowJobBuildRecordDetail`（`/v1/record/{id}/{no}/record-info`） |
 | `DownloadBuildLog` | `/v4/{record_id}/download-log` | `DownloadBuildFullLog`（`/v1/log/{record_id}/download-log`） |
 | `DownloadTaskLog` | `/v4/{record_id}/task-log` | `DownloadBuildFullLog`（`/v1/log/{record_id}/download-log`） |
-| `ShowOutputInfo` | `/v3/jobs/{id}/{no}/output-info` | 产物：`ShowNewOutput`（`/v1/job/{id}/{no}/output`，KooCLI 未封装，需手动调用） |
+| `ShowOutputInfo` | `/v3/jobs/{id}/{no}/output-info` | 产物：`ShowNewOutput`（`/v1/job/{id}/{no}/output`，KooCLI 未封装，自建 HTTP 承载实现） |
 | `ShowJobListByProjectId` | `/v3/{project_id}/jobs` | `ListProjectJobs`（`/v1/job/{project_id}/list`） |
 | `ListBuildInfoRecord` | `/v3/jobs/{id}/build-info-records` | `ListBuildInfoRecordByJobId`（`/v1/record/{id}/list`） |
 | `ShowJobSuccessRatio` | `/v3/jobs/{id}/success-ratio` | `ShowJobBuildSuccessRatio`（`/v1/report/ratio`） |
@@ -141,20 +129,7 @@ ListCustomTemplate (/v1/template/custom)      ListOfficialTemplate (/v1/template
 ShowTemplate (/v1/template/{uuid}/custom)     ShowYamlTemplate (/v1/template/{id}/default-template)
 DownloadBuildFullLog (/v1/log/{record_id}/download-log)
 DownloadBuildRealTimeLog (/v1/log/{id}/{no}/real-time-log)
-ShowNewOutput (/v1/job/{id}/{no}/output，KooCLI 未封装，需手动调用)
-```
-
-#### 1.4.3 推荐接口白名单（工具映射）
-
-插件**仅使用**以下推荐接口（各工具映射见 §2）：
-
-```
-v1: ShowRelatedProject, ListJob, ListProjectJobs, ShowJobConfig, CreateNewJob,
-    UpdateNewJob, DeleteTheJob, ExecuteJob, StopTheJob, ShowJobStepStatus,
-    ShowRunningStatus, ListRecords, ListBriefRecord, ListBuildInfoRecordByJobId,
-    ShowBuildInfoRecord, ShowJobBuildRecordDetail, ShowJobBuildSuccessRatio,
-    ListCustomTemplate, ListOfficialTemplate, DownloadBuildFullLog,
-    ShowNewOutput（v1 `/v1/job/{id}/{no}/output`，KooCLI 未封装，HTTP 承载统一实现，仅 list_artifacts 使用）
+ShowNewOutput (/v1/job/{id}/{no}/output，KooCLI 未封装，自建 HTTP 承载实现)
 ```
 
 > 判定原则：**v3/v4 Path 一律禁用**；仅 v1 推荐使用；新增工具映射前须按 `hcloud` 服务定义核对 Path 版本。
@@ -165,959 +140,56 @@ v1: ShowRelatedProject, ListJob, ListProjectJobs, ShowJobConfig, CreateNewJob,
 
 ## 2. 工具契约
 
-> 以下各工具标注的 **KooCLI 操作** 与 **URL（Path）** 均为 2026-09-16 KooCLI v7.2.12 实测（`~/.hcloud/metaRepo/template/codeartsbuild/*.yaml` 的 `Request.Path`）。完整请求地址 = `https://{endpoint}{Path}`，endpoint 由 `--cli-region` 决定。
+> 各工具详细契约（输入/输出/字段映射/实测确认）已拆分为独立文档：`docs/api/tools/*.md`。以下为速查索引。
 
-### 2.0 工具速查表（20 个）
+### 2.0 工具速查表（17 个）
 
-**本地构建域（B. 代码仓构建）—— 收敛为 1 工具**
+**本地构建域（B. 代码仓构建）**
 
-| # | 工具名称 | 定义 | 使用场景 |
-|---|----------|------|----------|
-| 2.16 | `codeartsbuild_repo_build` | 本地构建（唯一）：探测仓库类型→编译指导→执行编译→产物收集→留档 内置 | AI 自主编译代码仓；编译过程由模型自行判断 |
+| # | 工具名称 | 定义 | 使用场景 | 契约详情 |
+|---|----------|------|----------|----------|
+| 2.16 | `codeartsbuild_repo_build` | 本地构建（唯一）：探测仓库类型→编译指导→执行编译→产物收集→留档 内置 | AI 自主编译代码仓；编译过程由模型自行判断 | [repo_build.md](tools/repo_build.md) |
+| 2.17 | `codeartsbuild_repo_prepare` | 本地仓库准备 CodeArtsRepo 仓库（检测远端→建仓+回读 RepoInfo），返回远程 URL + 推送指引；**实际 push 由模型用宿主命令工具自探索** | 本地仓库无远端时建仓并取得 RepoInfo，打通 create_job 前置 | [repo_prepare.md](tools/repo_prepare.md) |
 
 **云侧·项目感知（A）**
 
-| # | 工具名称 | 定义 | 使用场景 |
-|---|----------|------|----------|
-| 2.1 | `codeartsbuild_list_projects` | 项目列表（v1 `ShowRelatedProject`） | 创建任务前选择 projectId |
-| 2.2 | `codeartsbuild_list_jobs` | 任务列表（v1 `ListJob`） | 查看/搜索已有任务 |
-| 2.3 | `codeartsbuild_get_job` | 任务详情（v1 `ShowJobConfig`） | 查看/评估任务配置 |
+| # | 工具名称 | 定义 | 使用场景 | 契约详情 |
+|---|----------|------|----------|----------|
+| 2.1 | `codeartsbuild_list_projects` | 项目列表（v1 `ShowRelatedProject`） | 创建任务前选择 projectId | [list_projects.md](tools/list_projects.md) |
+| 2.2 | `codeartsbuild_list_jobs` | 任务列表（v1 `ListJob`） | 查看/搜索已有任务 | [list_jobs.md](tools/list_jobs.md) |
+| 2.3 | `codeartsbuild_get_job` | 任务详情（v1 `ShowJobConfig`） | 查看/评估任务配置 | [get_job.md](tools/get_job.md) |
 
 **云侧·任务编排（C）**
 
-| # | 工具名称 | 定义 | 使用场景 |
-|---|----------|------|----------|
-| 2.4 | `codeartsbuild_create_job` | 创建任务（v1 `CreateNewJob`） | 本地构建配置落到云端 |
-| 2.5 | `codeartsbuild_update_job` | 更新任务（v1 `UpdateNewJob`） | 修改任务配置 |
-| 2.6 | `codeartsbuild_delete_job` | 删除任务（v1 `DeleteTheJob`），不可逆 | 废弃任务清理（须确认） |
-| 2.13 | `codeartsbuild_list_templates` | 官方模板列表（v1 `ListOfficialTemplate`） | create_job 前发现步骤配置 |
+| # | 工具名称 | 定义 | 使用场景 | 契约详情 |
+|---|----------|------|----------|----------|
+| 2.4 | `codeartsbuild_create_job` | 创建任务（v1 `CreateNewJob`） | 本地构建配置落到云端 | [create_job.md](tools/create_job.md) |
+| 2.5 | `codeartsbuild_update_job` | 更新任务（v1 `UpdateNewJob`） | 修改任务配置 | [update_job.md](tools/update_job.md) |
+| 2.6 | `codeartsbuild_delete_job` | 删除任务（v1 `DeleteTheJob`），不可逆 | 废弃任务清理（须确认） | [delete_job.md](tools/delete_job.md) |
+| 2.13 | `codeartsbuild_list_templates` | 用户自定义模板列表（v1 `ListCustomTemplate`） | create_job 前检查可用的用户自建模板 | [list_templates.md](tools/list_templates.md) |
 
 **云侧·执行控制（D）**
 
-| # | 工具名称 | 定义 | 使用场景 |
-|---|----------|------|----------|
-| 2.7 | `codeartsbuild_run_job` | 触发构建（v1 `ExecuteJob`） | 启动云端构建，返回 build_number |
-| 2.8 | `codeartsbuild_stop_job` | 停止构建（v1 `StopTheJob`） | 误触发/超时终止 |
+| # | 工具名称 | 定义 | 使用场景 | 契约详情 |
+|---|----------|------|----------|----------|
+| 2.7 | `codeartsbuild_run_job` | 触发构建（v1 `ExecuteJob`） | 启动云端构建，返回 build_number | [run_job.md](tools/run_job.md) |
+| 2.8 | `codeartsbuild_stop_job` | 停止构建（v1 `StopTheJob`） | 误触发/超时终止 | [stop_job.md](tools/stop_job.md) |
 
 **云侧·状态监控（E）**
 
-| # | 工具名称 | 定义 | 使用场景 |
-|---|----------|------|----------|
-| 2.9 | `codeartsbuild_get_status` | 状态查询（v1 `ShowJobStepStatus`） | 快速查看当前状态 |
-| 2.10 | `codeartsbuild_list_records` | 历史列表（v1 `ListRecords`） | 查看历史记录 |
-| 2.11 | `codeartsbuild_get_record` | 记录详情（v1 `ShowJobBuildRecordDetail`），含 build_record_id/execution_id/devcloud_project_id | 失败定位；取记录 ID 供日志下载 |
-| 2.14 | `codeartsbuild_wait_build` | 等待终态（轮询 `ShowJobStepStatus`） | 阻塞等待构建完成 |
+| # | 工具名称 | 定义 | 使用场景 | 契约详情 |
+|---|----------|------|----------|----------|
+| 2.9 | `codeartsbuild_get_status` | 状态查询（v1 `ShowJobBuildRecordDetail`） | 快速查看当前状态 | [get_status.md](tools/get_status.md) |
+| 2.10 | `codeartsbuild_list_records` | 历史列表（v1 `ListRecords`） | 查看历史记录 | [list_records.md](tools/list_records.md) |
+| 2.11 | `codeartsbuild_get_record` | 记录详情（v1 `ShowJobBuildRecordDetail`），含 build_record_id/execution_id/devcloud_project_id | 失败定位；取记录 ID 供日志下载 | [get_record.md](tools/get_record.md) |
+| 2.14 | `codeartsbuild_wait_build` | 等待终态（轮询 `ShowJobStepStatus`） | 阻塞等待构建完成 | [wait_build.md](tools/wait_build.md) |
 
 **云侧·产物/日志（F/G）**
 
-| # | 工具名称 | 定义 | 使用场景 |
-|---|----------|------|----------|
-| 2.12 | `codeartsbuild_list_artifacts` | 产物清单（v1 `ShowNewOutput`，KooCLI 未封装手动调用），软件包/镜像两类（OBS 待实测确认） | 交付构建结果 |
-| 2.15 | `codeartsbuild_get_log` | 日志拉取+清洗（v1 `DownloadBuildFullLog`） | 仅失败/显式要求时；供 LLM 分析 |
-
-### 2.1 codeartsbuild_list_projects
-
-获取当前用户可见的 CodeArts 项目列表。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_list_projects` |
-| **场景** | A. 项目感知 |
-| **描述** | 无参，返回当前用户下有权限的项目列表；响应中 `identifier` 即 projectId，`name` 即 projectName |
-| **KooCLI 操作** | `ShowRelatedProject`（GET） |
-| **URL** | `/v1/domain/project/related` |
-
-**输入参数**：无
-
-**输出示例**（实测响应）：
-
-```json
-{
-  "result": {
-    "total": 10,
-    "project_info_list": [
-      {
-        "identifier": "3xx235c31ae44fb4bb410d875b750xxd",
-        "name": "测试开发项目",
-        "status": null,
-        "author_id": "6dxx54d45bf44a0684a7a682f719xxd9",
-        "is_creator": true,
-        "author_domain_id": "764xx3980afc4e5c97a1a9a73c1dxx7a"
-      }
-    ]
-  },
-  "error": null,
-  "status": "success"
-}
-```
-
-> 字段映射：`result.project_info_list[].identifier` → projectId，`name` → projectName。
-
----
-
-### 2.2 codeartsbuild_list_jobs
-
-列出构建任务列表（**全局**，不按项目过滤——ListJob 无 project_id 参数）。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_list_jobs` |
-| **场景** | A. 项目感知 |
-| **描述** | 全局构建任务搜索；`search` 为核心按任务名称搜索字段；响应 `result.job_list[].id` 即 jobId |
-| **KooCLI 操作** | `ListJob`（GET） |
-| **URL** | `/v1/job/list` |
-
-**输入参数**（openapi.yaml 定义）：
-
-| 参数 | 类型 | 必填 | 默认 | 说明 |
-|------|------|------|------|------|
-| pageIndex | number | ❌ | 0 | 分页页码（page_index ≥ 0，≤1e9） |
-| pageSize | number | ❌ | 10 | 每页条数（page_size ≤100） |
-| search | string | ❌ | — | **核心搜索字段**：按任务名称关键字搜索 |
-| buildStatus | string | ❌ | — | 构建状态过滤，**枚举 aborted\|InQueue\|building\|red\|blue\|none** |
-| sortField | string | ❌ | — | 排序字段 |
-| sortOrder | string | ❌ | — | 排序方式（ASC\|DESC） |
-| creatorId | string | ❌ | — | 创建者用户 ID（可从响应 job_creator 获取） |
-
-> 注：原契约的 `projectId` 参数移除——实测 `ListJob` 无项目维度参数。若需项目维度筛选，可先 `list_projects` 后用 `search` 或按返回的 project 字段过滤。
-
-**输出示例**（openapi 实测响应）：
-
-```json
-{
-  "result": {
-    "total": 20697,
-    "job_list": [
-      {
-        "id": "8f4fb54a55c744beb8967cf50d96d87b",
-        "job_name": "APITest-JobList-running-2kDRoU",
-        "job_creator": "ae22fd035f354cfa8d82a3f1c8940446",
-        "user_name": "testUser",
-        "project_id": "6823252f543d4915b49892a5fd9f0ec3",
-        "project_name": "CodeCIServer—API测试01",
-        "last_build_time": 1727041445000,
-        "last_build_status": "aborted",
-        "last_job_running_status": "Finished",
-        "is_finished": true,
-        "disabled": false,
-        "scm_type": "codehub",
-        "build_number": "1",
-        "build_project_id": "8597a528-068e-4bfa-a812-3c625060c007"
-      }
-    ]
-  },
-  "status": "success"
-}
-```
-
-> 字段映射：`result.job_list[].id` → jobId；`last_build_time` 为毫秒时间戳（适配层转 ISO）；**last_build_status 实测含 `aborted`**（与 §4 枚举修订相冲突，需确认）。
-
----
-
-### 2.3 codeartsbuild_get_job
-
-获取单个构建任务的完整配置。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_get_job` |
-| **场景** | A. 项目感知 / C. 任务编排 |
-| **描述** | 按 jobId 查询构建任务详情；`steps` 为构建步骤（module_id 全限定名），`scms` 为构建代码仓，`parameters` 为构建参数（双层结构） |
-| **KooCLI 操作** | `ShowJobConfig`（GET） |
-| **URL** | `/v1/job/{job_id}/config` |
-
-**输入参数**（openapi.yaml 定义）：
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| jobId | string | ✅ | 构建任务 ID（path） |
-| getAllParams | string | ❌ | 是否返回完整参数（query `get_all_params`，true/false） |
-
-**输出示例**（openapi 实测响应，QueryJobConfigResponseBody）：
-
-```json
-{
-  "result": {
-    "steps": [
-      { "module_id": "devcloud2018.codeci_action_20028.action", "name": "使用SWR公共镜像", "version": null, "enable": false, "properties": null }
-    ],
-    "arch": "x86-64",
-    "project_id": "a287e712be6c404ca26e5f69040fa12b",
-    "job_name": "oychap213i2",
-    "job_id": "9f49a70d6e234d77a5018504cb9e325",
-    "auto_update_sub_module": "false",
-    "flavor": "2u8g",
-    "parameters": [
-      {
-        "name": "hudson.model.StringParameterDefinition",
-        "params": [{ "name": "name", "value": "clusterEum" }, { "name": "type", "value": "customizeparam" }]
-      }
-    ],
-    "scms": [
-      {
-        "branch": "master",
-        "url": "git@codehub.devcloud.{region}.huawei.com:soso-test00001/an.git",
-        "scm_type": "codehub",
-        "repo_id": "2111746211",
-        "build_type": "branch",
-        "build_commit_id": "5cb9180bedf25e8c103d30cb0c924a4107336b06"
-      }
-    ],
-    "host_type": "custom_host",
-    "build_config_type": "ACTION",
-    "source_code": "codeci"
-  },
-  "error": null,
-  "status": "success"
-}
-```
-
-> 字段映射：`result.steps[].module_id` 为全限定名；`result.scms[].scm_type` 实测 `codehub`；`result.arch` 实测 `x86-64`。工具规范化输出保留 result 主体（camelCase 转换）。
-
----
-
-### 2.4 codeartsbuild_create_job
-
-创建新的构建任务。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_create_job` |
-| **场景** | C. 任务编排 |
-| **描述** | 创建任务（入参较复杂），**支持模板化组装**：传 `stepsPlan`（意图级步骤计划：**步骤顺序 + 每步参数**，推荐）或 `language`（语言/场景速选默认组合）或 `steps`（原样透传，高级）；支持上传软件包、上传镜像、上传 OBS、下载 OBS |
-| **KooCLI 操作** | `CreateNewJob`（POST） |
-| **URL** | `/v1/job/create` |
-| **注意** | 调用前先 `repo_build` 完成本地构建验证，或 `list_templates` 获取可用模板；**`arch` 为必填**；steps 组装：① 显式 `steps` 最高优先；② `stepsPlan`（意图级，顺序+参数）由组装器补全 module_id/默认值；③ `language` 速选默认组合（`step-templates.json` + 语言组合映射，见 step-templates.md §7）；模板化组装前模型可用 `list_templates` 预览官方模板 |
-
-**输入参数**（openapi.yaml `CreateBuildJobRequestBody`，必填仅 arch/project_id/job_name；steps 业务上建议必填）：
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| arch | string | ✅ | 机器架构，**枚举 `x86-64` / `arm`**（openapi 定义） |
-| projectId | string | ⚠️* | 项目 ID（UUID，32 位数字字母）；**缺省时取会话上下文**（架构 §4.3 优先级：显式 > 会话 > 配置默认值 > `list_projects` 询问），显式传入覆盖并更新会话上下文 |
-| jobName | string | ✅ | 任务名称（中英文/数字/下划线/连接符，长度 1~115） |
-| stepsPlan | array | ⚠️* | **意图级步骤计划（推荐）**：`[{ step, properties? }]`——`step` 为 step-templates.json 的 `template_id`（推荐）或 module_id（高级）；**数组顺序即构建步骤顺序**；`properties` 覆盖该步默认参数（如 command/image/file）；组装器补全 module_id/name/未覆盖默认值 |
-| language | string | ❌ | 语言/场景标识（stepsPlan 缺省时速选）：对齐 step-templates.md §1 组合（如 `Java/Maven（jar）`、`JavaScript/npm`、`Go`）；展开为默认组合（顺序+参数由模板定义） |
-| steps | array | ❌ | 构建步骤（**原样透传，高级用法**），每项含 `module_id`（**全限定名**）+ `name`（必填），可选 `properties`/`version`/`enable`；**最高优先** |
-| scms | array | ❌ | 代码源，每项含 `scm_type`/`repo_id`/`repo_name`/`branch`/`url`/`web_url` 等 |
-| parameters | array | ❌ | 自定义参数（**双层结构**，见下） |
-| description | string | ❌ | 任务描述 |
-| flavor | string | ❌ | 执行机规格（如 DEFAULT / 2u8g） |
-| hostType | string | ❌ | 主机类型（custom_host / custom_acc / devcloud，默认 devcloud） |
-| buildConfigType | string | ❌ | 构建配置类型（YAML / ACTION，默认 ACTION） |
-| sourceCode | string | ❌ | 代码源类型（pipeline / codeci） |
-| buildIfCodeUpdated | boolean | ❌ | 提交代码触发构建开关（默认 false） |
-| autoUpdateSubModule | string | ❌ | 是否自动更新子模块（false/true，默认 false） |
-| agencyUrn | string | ❌ | 委托 urn |
-| groupId | string | ❌ | 任务分组 ID |
-
-> \* steps 在 openapi 定义中非必填，但**无 steps 的任务无构建意义**：`steps`/`stepsPlan`/`language` 三选一必填（tool-details.md §3.2 校验规则）；优先级 `steps` > `stepsPlan` > `language`。
->
-> **stepsPlan 示例**（Maven 构建 → 上传软件包，自定义命令与产物路径）：
->
-> ```json
-> [
->   { "step": "maven-build", "properties": { "command": "mvn clean package -DskipTests" } },
->   { "step": "upload-release", "properties": { "file": "target/*.jar", "buildVersion": "1.0.0" } }
-> ]
-> ```
-
-**steps 项结构**（openapi.yaml `CreateBuildJobSteps`，示例为 Maven 构建）：
-
-```json
-{
-  "properties": { "image": "maven3.5.3-jdk8-open", "command": "mvn package -DskipTests", "cacheOption": "cached" },
-  "module_id": "devcloud2018.codeci_action_20043.action",
-  "name": "Maven构建",
-  "version": "20231001.6",
-  "enable": true
-}
-```
-
-> **module_id 为全限定名**（`devcloud2018.codeci_action_XXXXX.action`），非短名（maven/npm 等）。合法值必须取自 `list_templates` 返回、`repo_build` 的 recommended_steps 或实测白名单（tool-details.md §3.3）。
-
-**parameters 结构**（双层，非简单 `[{name,value}]`）：
-
-```json
-[
-  {
-    "name": "hudson.model.StringParameterDefinition",
-    "params": [
-      { "name": "name", "value": "codeBranch" },
-      { "name": "type", "value": "normalparam" },
-      { "name": "defaultValue", "value": "master" },
-      { "name": "description", "value": "Code branch" },
-      { "name": "deletion", "value": "false" },
-      { "name": "defaults", "value": "true" },
-      { "name": "staticVar", "value": "false" },
-      { "name": "sensitiveVar", "value": "false" }
-    ]
-  }
-]
-```
-
-**输出示例**（openapi 实测响应）：
-
-```json
-{
-  "result": { "job_id": "db8467d972cc47f7a1bd2a3a3e77596a" },
-  "error": null,
-  "status": "success"
-}
-```
-
-> 工具规范化输出：`{ job_id }`（从 `result.job_id` 提取）。
-
----
-
-### 2.5 codeartsbuild_update_job
-
-更新已有构建任务。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_update_job` |
-| **场景** | C. 任务编排 |
-| **描述** | 接口入参与 create 相同，另需原任务 jobId；**不支持增量修改**（全量覆盖提交） |
-| **KooCLI 操作** | `UpdateNewJob`（POST，参数与 CreateNewJob 同构 + `job_id`） |
-| **URL** | `/v1/job/update` |
-
-**输入参数**：
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| jobId | string | ✅ | 构建任务 ID（原任务，请求体 `job_id`） |
-| body | object | ✅ | 与 create 同构的可修改配置片段（全量覆盖，非增量，含 arch/projectId/jobName/steps 等） |
-
-**输出示例**（openapi 实测响应）：
-
-```json
-{
-  "result": { "job_id": "db8467d972cc47f7a1bd2a3a3e77596a" },
-  "error": null,
-  "status": "success"
-}
-```
-
-> 工具规范化输出：`{ job_id, updated: true }`。
-
----
-
-### 2.6 codeartsbuild_delete_job
-
-删除构建任务。**不可逆，调用前必须与用户确认**。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_delete_job` |
-| **场景** | C. 任务编排 |
-| **描述** | 按 jobId 删除任务；不可逆 |
-| **KooCLI 操作** | `DeleteTheJob`（**DELETE**，openapi 实测为 HTTP DELETE） |
-| **URL** | `/v1/job/{job_id}/delete` |
-
-**输入参数**：
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| jobId | string | ✅ | 构建任务 ID（path） |
-
-**输出示例**（openapi 实测响应）：
-
-```json
-{
-  "result": { "project_id": "b4d3971c3988463b865f6f920846149e", "job_id": "c798139500d2456d82d95d108f182b5a" },
-  "error": null,
-  "status": "success"
-}
-```
-
-> 工具规范化输出：`{ job_id, deleted: true }`（从 `result.job_id` 提取）。
-
----
-
-### 2.7 codeartsbuild_run_job
-
-触发构建任务执行。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_run_job` |
-| **场景** | D. 执行控制 |
-| **描述** | 按 jobId 执行任务，可动态传参（构建参数、仓库信息）；执行成功返回 buildNo |
-| **KooCLI 操作** | `ExecuteJob`（POST） |
-| **URL** | `/v1/job/execute` |
-
-**输入参数**（openapi.yaml `RunJobRequestBody`）：
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| jobId | string | ✅ | 构建任务 ID（请求体 `job_id`） |
-| parameter | array | ❌ | 参数覆盖，`[{name, value}]`（**字段名为单数 `parameter`**，name/value 必填；name 长度 ≤128，value ≤8192） |
-| scm | object | ❌ | 仓库信息，`Scm` 定义：`build_commit_id?` / `build_tag?` / `branch?` / `build_type?`(branch\|tag\|commitId) / `repo_id?` / `repo_name?` |
-
-> **分支指定方式（openapi 对齐）**：`ExecuteJob` 的 scm 支持 `branch` 字段（openapi `Scm` 定义）；分支也可经 `parameter` 传入（如 `{name: "codeBranch", value: "develop"}`），或使用任务默认分支。KooCLI 实测是否接受 scm.branch 待确认（契约 §8 #4）。
-
-**输出示例**（openapi 实测响应）：
-
-```json
-{
-  "result": {
-    "octopus_job_name": "f9d6c8466d614a9788e9a0acf6c15f46",
-    "actual_build_number": "20",
-    "daily_build_number": "20200612.20"
-  },
-  "error": null,
-  "status": "success"
-}
-```
-
-> 工具规范化输出：`{ job_id: octopus_job_name, buildNo: Number(actual_build_number), daily_build_no: daily_build_number }`。**无 status 字段**（构建后状态需 get_status / wait_build 查询）。
-
----
-
-### 2.8 codeartsbuild_stop_job
-
-停止运行中的构建。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_stop_job` |
-| **场景** | D. 执行控制 |
-| **描述** | 按 jobId、buildNo 停止任务 |
-| **KooCLI 操作** | `StopTheJob`（POST） |
-| **URL** | `/v1/job/{job_id}/stop` |
-
-**输入参数**（openapi.yaml `StopTheJobRequestBody`）：
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| jobId | string | ✅ | 构建任务 ID（path） |
-| buildNo | number | ✅ | 构建编号（请求体 `build_no`，停止指定一次构建） |
-
-**输出示例**（openapi 实测响应）：
-
-```json
-{ "status": "success" }
-```
-
-> 工具规范化输出：`{ job_id, build_no, stopped: true }`。**原始响应无 job_id/build_no**，由工具层回填入参。
-
----
-
-### 2.9 codeartsbuild_get_status
-
-查询构建运行状态。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_get_status` |
-| **场景** | E. 状态监控 |
-| **描述** | 按 jobId、buildNo 查询任务状态；返回单值 `result.status`（STARTED/SUCCESS/FAILED，映射见 §4.1），易解析 |
-| **KooCLI 操作** | `ShowJobBuildRecordDetail`（GET，实测）——**评审决策（2026-09-18）：替换原 `ShowJobStepStatus`**（workflow.status 需结合 flow/error 解析，较难；且 `ShowRunningStatus` 仅查最新构建无法按 buildNo 查询） |
-| **URL** | `/v1/record/{job_id}/{build_no}/record-info` |
-
-**输入参数**：
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| jobId | string | ✅ | 构建任务 ID（path） |
-| buildNo | number | ✅ | 构建编号（path） |
-
-**输出示例**（实测响应）：
-
-```json
-{
-  "status": "success",
-  "error": null,
-  "result": {
-    "status": "SUCCESS",
-    "build_no": 532,
-    "duration": 100068,
-    "start_time": "2022-10-11T08:28:47.000+00:00",
-    "finish_time": "2022-10-11T08:30:27.000+00:00"
-  }
-}
-```
-
-> 工具规范化输出：`{ job_id, build_no, status: 映射后统一枚举（§4.1），start_time?, end_time?, duration_ms? }`。**状态在 `result.status`**（实测 STARTED/SUCCESS/FAILED），映射：STARTED→RUNNING、SUCCESS/FAILED 直映；其余状态（ERROR/CANCELED）以 ListRecords 查询兜底。`ShowJobStepStatus`（v1）保留供 `wait_build` 轮询使用（含 workflow.flow 子步骤详情）。
-
----
-
-### 2.10 codeartsbuild_list_records
-
-列出构建任务的历史记录。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_list_records` |
-| **场景** | E. 状态监控 |
-| **KooCLI 操作** | `ListRecords`（GET） |
-| **URL** | `/v1/record/{build_project_id}/records` |
-
-**输入参数**（openapi.yaml 定义：build_project_id 为 path 必填；分页为 `page`+`limit`，非 offset）：
-
-| 参数 | 类型 | 必填 | 默认 | 说明 |
-|------|------|------|------|------|
-| buildProjectId | string | ✅ | — | 项目 ID（path，`build_project_id`） |
-| page | number | ❌ | 1 | 分页页码（≥0） |
-| limit | number | ❌ | 10 | 每页条数（1~100） |
-| triggers | array | ❌ | — | 触发类型过滤（MANUAL 等） |
-| branches | array | ❌ | — | 分支列表过滤 |
-| tags | array | ❌ | — | 标签列表过滤 |
-| fromDate | string | ❌ | — | 起始时间（yyyy-MM-dd HH:mm:ss） |
-| toDate | string | ❌ | — | 结束时间（yyyy-MM-dd HH:mm:ss） |
-
-**输出示例**（openapi 实测响应）：
-
-```json
-{
-  "result": {
-    "pagination": { "page": 0, "limit": 10, "total": -1 },
-    "data": [
-      {
-        "id": "534488f1-8f08-4e2b-9bbb-9f3f20e0708e",
-        "status": "ABORTED",
-        "duration": 0,
-        "parameters": [{ "name": "codeBranch", "secret": false, "value": "master" }],
-        "repository": "https://codehub.devcloud.{region}.huawei.com:6823252f543d4915b49892a5fd9f0ec3/APITestCreateMaven02.git",
-        "branch": "master",
-        "status_code": 8,
-        "create_time": "2024-06-26T08:25:09.000+00:00",
-        "start_time": "2024-06-26T08:25:09.000+00:00",
-        "finish_time": "2024-06-26T08:25:26.000+00:00",
-        "execution_id": "j_VCcmey1D",
-        "build_no": "2",
-        "trigger_type": "MANUAL",
-        "scm_type": "codehub",
-        "project_id": "a3270d84-ddc7-4288-b985-f801871b260d"
-      }
-    ]
-  },
-  "error": null,
-  "status": "success"
-}
-```
-
-> 工具规范化输出：`{ records: data[]（camelCase 映射，build_no→buildNo）, total: pagination.total }`。注意：**openapi 实测记录含 `ABORTED` 状态**（与 §4 状态枚举修订相冲突，需确认——见契约 §8）。
-
----
-
-
-
-### 2.11 codeartsbuild_get_record
-
-获取某条构建记录详情。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_get_record` |
-| **场景** | E. 状态监控 / F. 产物管理 |
-| **描述** | 按 jobId、buildNo 获取构建记录详情；含 `build_record_id`（构建记录查询）、`execution_id`（日志查询）、`devcloud_project_id`（project_id） |
-| **KooCLI 操作** | `ShowJobBuildRecordDetail`（GET，实测） |
-| **URL** | `/v1/record/{job_id}/{build_no}/record-info` |
-
-**输入参数**：
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| jobId | string | ✅ | 构建任务 ID |
-| buildNo | number | ✅ | 构建编号 |
-
-**输出示例**（实测响应）：
-
-```json
-{
-  "status": "success",
-  "error": null,
-  "result": {
-    "id": "eb9d73c7-61b3-4823-b476-a7c00c493b8a",
-    "build_project_id": "31581e9f-5772-4053-a50c-d5690578c8fd",
-    "build_record_id": "9d6169b9-022d-458c-9dc8-48cc94cc4083",
-    "parent_record_id": null,
-    "devcloud_project_id": "b4d3971c3988463b865f6f920846149e",
-    "codeci_job_id": "68491d9bc97b4774adb93e29b46d2dc6",
-    "user_id": "ae22fd035f354cfa8d82a3f1c8940446",
-    "build_no": 532,
-    "daily_build_num": "20221011.29",
-    "execution_id": "j_YE1bu9Z7",
-    "repo_name": "maven",
-    "repo_id": "2111616838",
-    "branch": "buildflow_env",
-    "tag": null,
-    "commit": null,
-    "commit_message": null,
-    "commit_create_time": "2022-10-11T08:28:42.000+00:00",
-    "trigger_type": "MANUAL",
-    "build_type": "branch",
-    "status": "SUCCESS",
-    "domain_id": "60021bab32fd450aa2cb89226f425e06",
-    "create_time": "2022-10-11T08:28:42.000+00:00",
-    "schedule_time": "2022-10-11T08:28:45.000+00:00",
-    "queued_time": "2022-10-11T08:28:45.000+00:00",
-    "start_time": "2022-10-11T08:28:47.000+00:00",
-    "runnable_time": "2022-10-11T08:16:04.000+00:00",
-    "finish_time": "2022-10-11T08:30:27.000+00:00",
-    "duration": 100068,
-    "record_status": null,
-    "use_private_slave": 0,
-    "region": "xx-xxxx-xx",
-    "err_msg": null,
-    "build_config_type": "YAML"
-  }
-}
-```
-
-> **字段用途**：`result.build_record_id` → 构建记录查询（record_id，供日志下载）；`result.execution_id` → 日志查询；`result.devcloud_project_id` → project_id。
-
----
-
-### 2.12 codeartsbuild_list_artifacts
-
-列出某次构建产生的产物（**软件包产物 / 镜像产物**）。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_list_artifacts` |
-| **场景** | F. 产物管理 |
-| **描述** | 按 jobId、buildNo 查询产物信息；产物分为软件包产物（package_infos）、镜像产物（image_infos）两类（openapi 实测；OBS 产物见契约 §8 待确认） |
-| **KooCLI 操作** | `ShowNewOutput`（GET）——**该接口在 KooCLI 中不存在，需手动调用**（原生 HTTP 或 `cdo api`，复用同一 token） |
-| **URL** | `/v1/job/{job_id}/{build_no}/output` |
-
-**输入参数**：
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| jobId | string | ✅ | 构建任务 ID |
-| buildNo | number | ✅ | 构建编号 |
-
-**输出示例**（openapi 实测响应，OutPutInfo）：
-
-```json
-{
-  "result": {
-    "package_infos": [
-      {
-        "project_id": "cdaffd3a058b43db948d49c946e1021a",
-        "name": "README.md",
-        "version": "20260323.1",
-        "package_type": "md",
-        "uri": null,
-        "type": "package",
-        "group": null,
-        "swr_organization": null,
-        "swr_uri": null,
-        "swr_tag": null,
-        "history_id": null,
-        "daily_build_number": "20260323.1"
-      }
-    ],
-    "image_infos": [],
-    "user_properties": { "build_version": "1.0.0" }
-  },
-  "error": null,
-  "status": "success"
-}
-```
-
-> **字段说明**（OutPutResult）：`type` 枚举 `image`（镜像）/`package`（软件包）；`package_type` 枚举 cmake/jar/py/zip/txt/yml/html；`uri` 产物路径；`daily_build_number` 每日构建编号。响应还有单数 `package_info`（单个对象）字段（OutPutInfo 定义含两者，实测返回数组 `package_infos`）。**无 obs 字段**——OBS 产物是否存在需实调用确认（契约 §8 #2）。接口未封装于 KooCLI，实现时走手动 HTTP 调用。
-
-**规范化产物输出**（工具层将原始响应映射为统一结构体，见 operations/artifacts.md §1）：
-
-```json
-{
-  "artifacts": [
-    {
-      "name": "demo-1.0.0.jar",
-      "type": "artifact",
-      "language": "Java",
-      "record_id": "7f8c1d2e-...-36位uuid",
-      "size_bytes": 245760,
-      "uri": "cloudartifact://demo-project/demo/1.0.0/demo-1.0.0.jar",
-      "console_url": "https://console.huaweicloud.com/codearts/artifact/#/repository/demo-project/demo/1.0.0"
-    }
-  ],
-  "job_id": "f9d6c8466d614a9788e9a0acf6c15f46",
-  "build_no": 13
-}
-```
-
-**下载策略（当前版本）**：不提供下载（download_url 需 token），仅返回 `console_url` 支持用户跳转控制台查看；大文件下载 M2 规划（见 operations/artifacts.md §5）。
-
----
-
-### 2.13 codeartsbuild_list_templates
-
-列出可用构建模板（**官方模板**）。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_list_templates` |
-| **场景** | C. 任务编排（配置发现） |
-| **描述** | 查询**官方模板**（`ListOfficialTemplate`）；用户自建模板用 `ListCustomTemplate`（`/v1/template/custom`）查询 |
-| **KooCLI 操作** | `ListOfficialTemplate`（GET，实测） |
-| **URL** | `/v1/template/officialtemplates` |
-
-**输入参数**（openapi.yaml 定义）：
-
-| 参数 | 类型 | 必填 | 默认 | 说明 |
-|------|------|------|------|------|
-| name | string | ❌ | — | 模板名称模糊查询（长度 1~115） |
-| page | number | ❌ | 0 | 页码（openapi 类型为 string，默认 "0"；适配层转 number） |
-| pageSize | number | ❌ | 20 | 每页条数（1~100，query 名 `page_size`） |
-
-> openapi 无 `tags` 参数（原契约的 tags 移除）。
-
-**输出示例**（openapi 实测响应，ListOfficialTemplate）：
-
-```json
-{
-  "result": {
-    "items": [
-      {
-        "public": true,
-        "favourite": false,
-        "nick_name": "021",
-        "uuid": "2d9031c079624376824fe1e2731615dc",
-        "template": {
-          "steps": [
-            { "properties": {}, "module_id": "devcloud2018.codeci_action_20018.action", "name": "上传软件包到软件发布库", "version": null, "enable": true }
-          ]
-        },
-        "type": "codeci",
-        "name": "oych_test_temp_ladadad12122313",
-        "weight": 0,
-        "scope": "custom",
-        "description": "123",
-        "parameters": [
-          {
-            "name": "hudson.model.StringParameterDefinition",
-            "params": [
-              { "name": "name", "value": "codeBranch" },
-              { "name": "type", "value": "normalparam" },
-              { "name": "defaultValue", "value": "master" }
-            ]
-          }
-        ]
-      }
-    ],
-    "total_size": 41
-  },
-  "error": null,
-  "status": "success"
-}
-```
-
-> 工具规范化输出：`{ templates: items[]（含 name/description/scope/steps/template.steps），total: total_size }`。**steps[].module_id 为全限定名**（如 `devcloud2018.codeci_action_20018.action`），可直接作为 create_job.steps 入参。
-
-> **模板来源区分**：`ListOfficialTemplate`（v1 `/v1/template/officialtemplates`）查官方模板；`ListCustomTemplate`（v1 `/v1/template/custom`）查用户自建模板。create_job 模板化组装默认用官方模板。
-
----
-
-### 2.14 codeartsbuild_wait_build
-
-轮询等待构建进入终态。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_wait_build` |
-| **场景** | E. 状态监控 |
-| **描述** | 按 jobId、buildNo 查询任务状态并轮询直至终态 |
-| **KooCLI 操作** | 内部循环调用 `ShowJobStepStatus` |
-| **URL** | `/v1/job/{job_id}/status` |
-
-**输入参数**：
-
-| 参数 | 类型 | 必填 | 默认 | 说明 |
-|------|------|------|------|------|
-| jobId | string | ✅ | — | 构建任务 ID |
-| buildNo | number | ✅ | — | 构建编号 |
-| intervalMs | number | ❌ | 10000 | 初始轮询间隔（2000~120000） |
-| timeoutMs | number | ❌ | 1800000 | 总超时阈值（默认 30 分钟；范围 60000~7200000） |
-| maxBackoffMs | number | ❌ | 30000 | 退避上限（见"轮询策略"） |
-
-**轮询策略（待办 #4 补齐）**：
-
-| 项 | 规约 |
-|----|------|
-| 初始间隔 | `intervalMs`（默认 10s） |
-| **退避策略** | 指数退避：每次轮询间隔 ×1.5，上限 `maxBackoffMs`（默认 30s）；用于长时间未终态时降低 API 压力 |
-| **总超时阈值** | `timeoutMs`（默认 30 分钟，上限 2 小时）；超时即中止轮询 |
-| **超时后行为** | 返回 `status=TIMEOUT` + 最后一次已知状态（`last_status`/`last_start_time`），**不抛异常**，由 LLM 决策后续（继续 get_status 或升级用户） |
-| 终态判定 | `SUCCESS` / `FAILED` / `ERROR` / `CANCELED` / `COMPLETED` 任一即停 |
-| 网络抖动 | 单次查询失败（网络错误）重试 ≤2 次（间隔 2s），不影响退避计数；**连续 3 轮网络失败才抛 E_NETWORK**，单轮抖动继续轮询 |
-| **终态复核** | `completed` + `workflow.error` 非取消类（2026-09-21 实测：error 可能瞬态，日志 `Finished: SUCCESS` 但 error 有值）→ 调 `ShowJobBuildRecordDetail`（`/v1/record/{job_id}/{build_no}/record-info`）复核权威终态；取消类 error（reason 含 取消/abort/cancel）→ 直接 CANCELED |
-
-**输出示例**：
-
-```json
-{
-  "job_id": "f9d6c8466d614a9788e9a0acf6c15f46",
-  "build_no": 13,
-  "status": "FAILED",
-  "start_time": "2026-09-15T10:30:00Z",
-  "end_time": "2026-09-15T10:35:20Z"
-}
-```
-
-**超时输出示例**：
-
-```json
-{
-  "job_id": "f9d6c8466d614a9788e9a0acf6c15f46",
-  "build_no": 13,
-  "status": "TIMEOUT",
-  "last_status": "RUNNING",
-  "last_start_time": "2026-09-15T10:30:00Z",
-  "elapsed_ms": 1800000
-}
-```
-
-**行为**：终态立即返回；超时返回 `TIMEOUT`（非异常，见上）；`status=FAILED` 时 LLM 继续走 G2（`get_log` → 清洗 → 分析）。
-
----
-
-### 2.15 codeartsbuild_get_log
-
-**获取构建日志（清洗建模）。仅 error 分析场景调用。**
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_get_log` |
-| **场景** | G. 故障诊断 |
-| **描述** | 基于 record_id 查询构建日志（全量） |
-| **KooCLI 操作** | `DownloadBuildFullLog`（GET，log_level 可选 INFO\|DEBUG，实测） |
-| **URL** | `/v1/log/{record_id}/download-log` |
-| **调用约束** | 仅在构建失败或用户显式要求日志时调用 |
-
-**输入参数**：
-
-| 参数 | 类型 | 必填 | 默认 | 说明 |
-|------|------|------|------|------|
-| recordId | string | ✅ | — | 记录 ID（来自 get_record 的 `build_record_id`，36 位 UUID） |
-| logLevel | string | ❌ | INFO | 日志等级（INFO\|DEBUG） |
-| maxBytes | number | ❌ | 262144 | 日志截断上限（默认 256 KB） |
-
-**输出示例**：
-
-```json
-{
-  "job_id": "f9d6c8466d614a9788e9a0acf6c15f46",
-  "record_id": "7f8c1d2e-...-36位uuid",
-  "byte_size": 1572864,
-  "truncated": true,
-  "raw_sample": "[INFO] ...\n[ERROR] COMPILATION ERROR:\n...",
-  "structured": [
-    {
-      "phase": "build",
-      "level": "error",
-      "content": "Demo.java:42: error: cannot find symbol",
-      "line_range": [41, 43]
-    }
-  ],
-  "error_summary": {
-    "phase": "build",
-    "error_type": "COMPILE_ERROR",
-    "message": "cannot find symbol: method getDemo()",
-    "line": 42,
-    "context": "  return demo.getDemo();\n         ^"
-  }
-}
-```
-
-**大日志策略**：HEAD + TAIL + 错误上下文三区采样；`truncated=true` 时提示用户控制台查看全文。
-
----
-
-### 2.16 codeartsbuild_repo_build
-
-**本地构建**（本地构建域，唯一工具）：执行代码仓编译构建，内部完成类型探测、编译指导、命令执行、产物收集、过程留档；实际编译过程由模型自行判断。
-
-| 项 | 值 |
-|----|----|
-| **名称** | `codeartsbuild_repo_build` |
-| **场景** | B. 代码仓构建 |
-| **实现** | `src/providers/local-build/build.ts`——内部步骤：① `fs` 探测仓库类型/语言/构建工具（可选探测，仓库类型未传时自动）；② 按仓库类型给出**编译指导**（参考命令 + 注意点）；③ `child_process.spawn` 执行编译（命令由模型传入或参考指导），收集 stdout/stderr 尾部（各 4KB），退出码判定成功/失败；④ 失败时正则匹配 stderr 分类异常（见 repo-analyzer.md §5.1）；⑤ 成功后按工具默认 patterns 用 `glob` 扫描产物（`target/*.jar`/`dist/*`/`build/*`）；⑥ 自动留档到 `.codeartsbuild/build-records/`。不经 KooCLI。 |
-
-**输入参数**：
-
-| 参数 | 类型 | 必填 | 默认 | 说明 |
-|------|------|------|------|------|
-| repoPath | string | ✅ | — | 本地仓库地址 |
-| repoType | string | ❌ | 自动探测 | 仓库类型（如 `maven`/`gradle`/`npm`/`go`/`python`/`docker`），缺省时工具自动探测 |
-| buildCommandHint | string | ❌ | — | 参考编译命令（模型已判明时传入；缺省由工具按仓库类型给出编译指导） |
-| timeoutMs | number | ❌ | 1800000 | 超时（默认 30 分钟） |
-
-**输出示例**：
-
-```json
-{
-  "status": "SUCCESS",
-  "repo_path": "D:/code/ai/demo",
-  "repo_type": "maven",
-  "build_command": "mvn package -DskipTests",
-  "build_guidance": "Maven 项目：参考命令 `mvn package -DskipTests`；产物默认输出于 target/ 目录",
-  "exit_code": 0,
-  "stdout_tail": "[INFO] BUILD SUCCESS...",
-  "stderr_tail": "",
-  "duration_seconds": 120,
-  "artifacts": [
-    {
-      "name": "demo-1.0.0.jar",
-      "type": "local",
-      "language": "Java",
-      "record_id": "2026-09-16_100000",
-      "size_bytes": 245760,
-      "uri": "target/demo-1.0.0.jar"
-    }
-  ],
-  "recommended_steps": [
-    { "module_id": "devcloud2018.codeci_action_20043.action", "name": "Maven 构建", "command": "mvn package -DskipTests" },
-    { "module_id": "devcloud2018.codeci_action_20018.action", "name": "上传软件包到软件发布库" }
-  ],
-  "archived": {
-    "record_id": "2026-09-16_100000",
-    "path": ".codeartsbuild/build-records/2026-09-16_100000.json"
-  }
-}
-```
-
-> 产物结构体：`type: local`（本地介质，统一结构体见 operations/artifacts.md §1）；`language` 语言类型、`record_id` 留档 ID、`uri` 为仓库内相对路径。
-
-**recommendedSteps → create_job.steps 映射契约（待办 #5 补齐）**：
-
-| 项 | 规约 |
-|----|------|
-| **同构约束** | `recommended_steps[].{module_id, name}` 必填，与 `create_job.steps` 入参**完全同构**（§2.4）；`command` 可选，从 `build_command` 推导 |
-| **repo_type → module_id 默认映射** | **module_id 为全限定名**（`devcloud2018.codeci_action_XXXXX.action`）；映射以 `ListOfficialTemplate` + `ListModulesDetail` 实测为准（**2026-09-18 已拆解，见 `docs/design/step-templates.md` §5**：maven→`20043`、gradle→`20008`、npm→`20014`、yarn→`20019`、go→`20026`、python→`20016`、php→`20037`、cmake→`20005`、msbuild→`20020`、docker→`20004`），**禁止臆造短名** |
-| **步骤追加** | 除构建步骤外，模型可按需追加"上传软件包/上传镜像"等后续步骤（module_id 取自 `list_templates` 官方模板；OBS 上传待实测确认） |
-| **直接可用** | 本地构建成功后，`recommended_steps` 可直接作为 `create_job` 的 `steps` 入参（附 `arch`/`jobName`/`projectId`） |
-| **约束** | 模型不得臆造 `module_id`——必须取自本字段、`list_templates` 返回或已实测白名单（tool-details.md §3.3） |
-
-**失败时**：
-
-```json
-{
-  "status": "FAILED",
-  "repo_path": "D:/code/ai/demo",
-  "repo_type": "maven",
-  "build_command": "mvn package -DskipTests",
-  "exit_code": 1,
-  "error": {
-    "error_type": "DEPENDENCY_MISSING",
-    "error_code": null,
-    "message": "Could not resolve dependencies...",
-    "context": "mvn package 前 2 行"
-  },
-  "stdout_tail": "...",
-  "stderr_tail": "Could not resolve...",
-  "archived": { "record_id": "2026-09-16_100100", "path": ".codeartsbuild/build-records/2026-09-16_100100.json" }
-}
-```
-
-**模型自决规约**（见 repo-analyzer.md §4）：
-- 编译命令：模型基于仓库类型/编译指导自行判断传入 `buildCommandHint`；未传入时工具按仓库类型给出参考指导
-- 异常修复：`status=FAILED` 返回结构化错误 → 模型自行判断修复策略（用通用 bash 能力装依赖/修正命令后重调本工具）；修复无果 → 通知用户交互
-- 探测与留档：工具内部完成，模型无需单独关心
+| # | 工具名称 | 定义 | 使用场景 | 契约详情 |
+|---|----------|------|----------|----------|
+| 2.12 | `codeartsbuild_list_artifacts` | 产物清单（v1 `ShowNewOutput`，自建 HTTP 承载），软件包/镜像两类 | 交付构建结果 | [list_artifacts.md](tools/list_artifacts.md) |
+| 2.15 | `codeartsbuild_get_log` | 日志拉取+清洗（v1 `DownloadBuildFullLog`，ZIP 解压） | 仅失败/显式要求时；供 LLM 分析 | [get_log.md](tools/get_log.md) |
 
 ---
 
@@ -1132,16 +204,16 @@ v1: ShowRelatedProject, ListJob, ListProjectJobs, ShowJobConfig, CreateNewJob,
 }
 ```
 
-**text 规范**：`[错误码] 人类可读描述\n详情: <KooCLI/API 返回详情>`
+**text 规范**：`[错误码] 人类可读描述\n详情: <HTTP/API 返回详情>`
 
 ### 3.2 错误码表
 
 | 错误码 | 含义 | 典型触发 | 建议处理 |
 |--------|------|----------|----------|
-| `E_CONFIG` | 配置缺失/非法 | KooCLI 未安装、region 未配置 | 提示安装/配置 hcloud |
-| `E_AUTH` | 认证失败 | AK/SK 失效、无权限 | 提示检查 `hcloud configure` |
-| `E_PARAM` | 参数校验失败 | 必填缺失、类型错误 | 返回字段级错误列表 |
-| `E_API` | CodeArtsBuild 业务错误 | 任务不存在、重名 | 透传 KooCLI 错误码 |
+| `E_CONFIG` | 配置缺失/非法 | 凭据未配置（env 缺 CAB_AK/SK 或 hcloud config 不可读）、region 无 endpoint | 配置凭据（见 auth.md §2） |
+| `E_AUTH` | 认证失败 | AK/SK 失效（401）、无权限（403） | 检查 AK/SK 与权限；hcloud config 密文时改用环境变量 |
+| `E_PARAM` | 参数校验失败 | 必填缺失、类型错误、module_id 非白名单 | 返回字段级错误列表 |
+| `E_API` | CodeArtsBuild 业务错误 | 任务不存在、重名、无权限 | 透传 HTTP 响应 error_code/error_msg |
 | `E_NETWORK` | 网络异常 | 超时、连接失败 | 幂等命令重试 ≤3 次 |
 | `E_TIMEOUT` | 构建等待超时 | wait_build 超时 | 返回当前状态 |
 | `E_LOG` | 日志处理错误 | 日志过大、下载失败 | 返回 console_url |
@@ -1164,7 +236,7 @@ v1: ShowRelatedProject, ListJob, ListProjectJobs, ShowJobConfig, CreateNewJob,
 | `CANCELED` | 终态 | 用户取消 |
 | `COMPLETED` | 终态 | 已完成 |
 
-> **修订说明（2026-09-18 实调用确认，契约 §8 #8；2026-09-21 Layer 2 实调补正）**：实测接口返回状态与 openapi/早期设计有差异，工具层需在适配层**映射为上述统一枚举**。原始接口状态映射表：
+> **修订说明（2026-09-18 实调用确认；2026-09-21 Layer 2 实调补正）**：实测接口返回状态与 openapi/早期设计有差异，工具层需在适配层**映射为上述统一枚举**。原始接口状态映射表：
 
 | 接口 | 原始状态（实测） | 映射 |
 |------|-----------------|------|
@@ -1181,7 +253,7 @@ v1: ShowRelatedProject, ListJob, ListProjectJobs, ShowJobConfig, CreateNewJob,
 { SUCCESS, FAILED, ERROR, CANCELED, COMPLETED }
 ```
 
-> **wait_build 终态判定**：以 `ShowJobStepStatus` 映射后为准（§4.1 映射表）；`ShowRunningStatus` 仅查最新构建，**不能替代按 build_no 的 get_status**；get_status 替换候选为 `ShowJobBuildRecordDetail`（契约 §8 #7 待人工决策）。
+> **wait_build 终态判定**：以 `ShowJobStepStatus` 映射后为准（§4.1 映射表）；`ShowRunningStatus` 仅查最新构建，**不能替代按 build_no 的 get_status**。
 
 ---
 
@@ -1202,18 +274,19 @@ v1: ShowRelatedProject, ListJob, ListProjectJobs, ShowJobConfig, CreateNewJob,
 
 ## 6. 工具注册全景与工作流编排
 
-### 6.1 工具注册全景（16 个原子工具）
+### 6.1 工具注册全景（17 个原子工具）
 
 | 域 | 工具 | 场景 |
 |----|------|------|
 | **本地构建域** | `repo_build`（探测+编译指导+执行+产物+留档 内置） | B. 代码仓构建 |
+| **仓库准备** | `repo_prepare`（本地仓库准备 CodeArtsRepo 仓库：检测远端→建仓+回读 RepoInfo；push 由模型自探索） | B. 代码仓构建（create_job 前置） |
 | **云侧·项目感知** | `list_projects` / `list_jobs` / `get_job` | A. 项目感知 |
 | **云侧·任务编排** | `create_job` / `update_job` / `delete_job` / `list_templates` | C. 任务编排 |
 | **云侧·执行控制** | `run_job` / `stop_job` | D. 执行控制 |
 | **云侧·状态监控** | `get_status` / `list_records` / `get_record` / `wait_build` | E. 状态监控 |
 | **云侧·产物/日志** | `list_artifacts` / `get_log` | F/G. 产物/诊断 |
 
-> 注：v0.3.x 的 `analyze_repo` 已移除；本地构建域收敛为单一 `repo_build`（2.16），编译过程由模型自决（repo-analyzer.md §4）。
+> 注：v0.3.x 的 `analyze_repo` 已移除；本地构建域为 `repo_build`（2.16）+ `repo_prepare`（2.17，FE-08 §5 决策，2026-09-28 调整：建仓/RepoInfo 保留在工具内，**实际 git push 由模型用宿主 bash/pwsh 自探索**，工具不再内置 push 固定脚本），编译过程由模型自决（FE-01-本地代码仓构建流程设计-20260919.md §4）。
 
 ### 6.2 工作流一：完整构建生命周期（G1）
 
@@ -1263,7 +336,7 @@ repo_build(FAILED, 返回结构化错误) → 模型自决修复(通用 bash 装
 
 ### 6.6 编排实现
 
-- **dsh 注册**：16 个原子工具均经 `ctx.tools.register(defineTool({...}))` 注册（schemastery schema）
+- **dsh 注册**：17 个原子工具均经 `ctx.tools.register(defineTool({...}))` 注册（schemastery schema）
 - **LLM 编排（主）**：`skills/codeartsbuild/SKILL.md` 定义调用序列与规约，LLM 按需组合原子工具
 - **本地构建已收敛**：`repo_build` 单工具封装探测/指导/执行/产物/留档，无需额外组合层
 
@@ -1276,30 +349,21 @@ repo_build(FAILED, 返回结构化错误) → 模型自决修复(通用 bash 装
 | G1 自动创建并执行 | 工作流一（§6.2）：repo_build→...→list_artifacts | ✅ |
 | G2 异常诊断 | 工作流二（§6.3）：get_log→清洗→LLM | ✅ |
 | G3 产物链接 | 工具 `list_artifacts` 返回 `console_url` 页面跳转链接（当前版本不提供下载） | ✅ |
-| G5 dsh 插件为主 | 16 个原子工具经 dsh `defineTool` 注册；LLM 编排（§6.6） | ✅ |
+| G5 dsh 插件为主 | 17 个原子工具经 dsh `defineTool` 注册；LLM 编排（§6.6） | ✅ |
 | B. 代码仓构建（repo-analyzer v0.2） | 工具 2.16 `repo_build`（本地构建域 1 工具，模型自决） | ✅ |
-| KooCLI 实测操作名 | 云侧工具映射 `ShowRelatedProject`/`CreateNewJob`/`ExecuteJob`/`ShowJobBuildRecordDetail`/`DownloadBuildFullLog`（v1）；`ShowNewOutput`（v1，KooCLI 未封装，自建 HTTP 承载统一实现） | ✅（已实测/评审确认） |
-| 禁用 v3 旧版接口 | §1.4.1 禁用清单 + §1.4.3 白名单（v3 全部禁用，产物改 v1 `ShowNewOutput`） | ✅ |
-| 人工评审补充说明与接口调整（2026-09-17） | 各工具新增 `description`；`get_record`→`ShowJobBuildRecordDetail`、`list_artifacts`→`ShowNewOutput`（KooCLI 未封装手动调用）、`list_templates`→`ListOfficialTemplate`、`get_log`→`DownloadBuildFullLog`；`stop_job`/`get_status` 补充 buildNo | ✅（v0.4.3） |
+| KooCLI 实测操作名 | 云侧工具映射 `ShowRelatedProject`/`CreateNewJob`/`ExecuteJob`/`ShowJobBuildRecordDetail`/`DownloadBuildFullLog`（v1）；`ShowNewOutput`（v1，自建 HTTP 承载统一实现） | ✅（已实测/评审确认） |
+| 禁用 v3 旧版接口 | §1.4.1 禁用清单（v3/v4 全部禁用，产物改 v1 `ShowNewOutput`） | ✅ |
+| 人工评审补充说明与接口调整（2026-09-17） | 各工具新增 `description`；`get_record`→`ShowJobBuildRecordDetail`、`list_artifacts`→`ShowNewOutput`、`get_log`→`DownloadBuildFullLog`；`stop_job`/`get_status` 补充 buildNo | ✅（v0.4.0） |
+| list_templates 查询对象调整（2026-09-23 实调确认） | `list_templates` 改查**用户自定义模板** `ListCustomTemplate`（`/v1/template/custom`，参数/响应实测）；官方模板 `ListOfficialTemplate` 仅作 step-templates.json 离线初始化数据源 | ✅（v0.6.0 补充） |
 | 状态枚举修订 | §4 去除 INITIALIZING/ABORTED | ✅ |
 | 日志仅 error 获取 | 工具 `get_log` 调用约束 | ✅ |
 
-## 8. 待人工确认项
+---
 
-> **2026-09-18 实调用确认（待办 #1）**：以下各项已通过 KooCLI v7.2.12 实调用验证（region=cn-north-4），结论写入契约。✅=已确认，⚠️=部分确认/受限。
+## 8. 残留待人工确认项
+
+> **已确认项（2026-09-18/21 实调用确认）**：record_id 来源、ShowNewOutput 字段、ShowJobStepStatus 字段、ExecuteJob 分支指定、ListRecords 参数（36 位 UUID）、DeleteTheJob/StopTheJob 参数、get_status 接口落定、状态枚举冲突、CreateNewJob steps 必填、DownloadBuildFullLog 返回 ZIP——均已确认并写入各工具文档，不再单列。
 
 | # | 项 | 说明 | 状态 |
 |---|----|------|------|
-| 1 | `record_id` 来源 | ✅ **已实调用确认**：`ShowJobBuildRecordDetail` 返回 `build_record_id`，与 `ListRecords` `data[].id` **完全一致**（同一 UUID）；`DownloadBuildFullLog` 用该 `build_record_id` 直接下载成功。record_id 对应关系成立 | ✅ |
-| 2 | `ShowNewOutput`(v1) 响应字段 | ✅ **KooCLI 确认未封装**（`不支持的operation:ShowNewOutput`）；openapi 定义 `package_infos`/`image_infos`，无 obs 字段。**2026-09-20 更新**：自建 HTTP 承载（AK/SK 签名）后与普通工具同构，**不再需要 token 手动调用**——`GET /v1/job/{job_id}/{build_no}/output` 直接实现；**OBS 上传/下载 step 确认存在**（action 定义实测 `codeci_action_20057` obsUploader / `20063` obsDownloader，见 step-templates.md §3.4/§3.5）——OBS 作为**构建步骤**交付产物，但 ShowNewOutput 响应无 obs 字段，产物查看需 console_url | ✅ |
-| 3 | `ShowJobStepStatus`(v1) 响应字段 | ✅ **已实调用确认**：返回 `result.workflow.status`（实测 `running`）+ `result.flow`（步骤状态对象，含 external_pre_checkout/initial/state_N 等阶段）+ `result.label`。映射规则：running→RUNNING、completed→SUCCESS/FAILED（结合 workflow.error）、aborted→CANCELED | ✅ |
-| 4 | `ExecuteJob` 分支指定 | ✅ **已实调用确认**：hcloud 封装仅 `--scm.build_commit_id`/`--scm.build_tag`（**无 --scm.branch**）——openapi `Scm.branch` 在 KooCLI 层不可用；分支经 `--parameter.[N].{name,value}`（实测 `codeBranch` 生效）；响应 `result.actual_build_number`/`daily_build_number`/`octopus_job_name` | ✅ |
-| 5 | `ListRecords`(v1) 参数 | ✅ **已实调用确认**：path 参数 `--build_project_id` 为 **36 位 UUID**（= ListJob 返回的 `build_project_id`，非 32 位 project_id）；`--page`/`--limit` 正确透传（实测返回 pagination）；支持 branches/tags/triggers/from_date/to_date 过滤 | ✅ |
-| 6 | `DeleteTheJob`/`StopTheJob`(v1) 参数 | ✅ **已实调用确认**：`DeleteTheJob` 为 **HTTP DELETE**（hcloud help `Method: DELETE`，无 body，job_id path）；`StopTheJob` body 为 `{build_no}`（实测传 `--build_no=1` 返回业务错误 DEVCB.00030000 而非参数错误，参数传递正确；构建已结束故停止失败，符合预期） | ✅ |
-| 7 | `get_status` 接口待定 | ✅ **已实调用确认（2026-09-18 修正）**：`ShowRunningStatus` 仅查询 **job 最新一次构建**的运行状态（无 build_no 参数，返回 `last_build_status`/`is_running`），**不能替代按 jobId+buildNo 查询的 get_status**；**评审决策（2026-09-18）：`get_status` 改用 `ShowJobBuildRecordDetail`**（实测按 jobId+buildNo 返回单值 `result.status`：STARTED/SUCCESS/FAILED，比 workflow.status 易解析）；`ShowJobStepStatus`（v1）保留供 `wait_build` 轮询使用 | ✅ |
-| 8 | **状态枚举冲突** | ✅ **已实调用确认存在**：ListRecords `data[].status` 实测含 `STARTED`/`ABORTED`；ShowJobBuildRecordDetail `status` 实测 `STARTED`；ListJob `last_build_status` 实测 `red`/`blue`/`aborted`、`last_job_running_status` 实测 `Running`/`Finished`——与 §4 枚举（QUEUED/RUNNING/SUCCESS/FAILED/ERROR/CANCELED/COMPLETED）**冲突**，需修订 §4（见 §4.1 修订说明）。**2026-09-21 Layer 2 补正**：ShowJobBuildRecordDetail 排队态实测 `SCHEDULING`；ShowJobStepStatus 对停止构建返回 `completed`+error 取消类（`COCT.0020003.450`）——均已在 §4.1 映射表补齐 | ✅ |
-| 11 | **ListRecords 空数据观察** | ⚠️ **2026-09-21 Layer 2 实调发现**：用 build_project_id=`a5e151e2-...`（任务 `maven-build-20260818` 的 build_project_id）调 ListRecords 返回 `total=-1, records=[]`，而该任务确有构建记录——build_project_id 口径与契约 §8 #5（= ListJob 返回的 build_project_id）可能不一致，待进一步确认 | ⚠️ |
-
-> **新增确认项（实测发现）**：
-> 9. **CreateNewJob steps 必填**：openapi 定义 steps 非必填，但 **KooCLI 封装要求 `--steps.[N].module_id`/`name` 必填**（hcloud help required）——tool-details.md §3.2 已按"业务建议必填"设计，KooCLI 层为强制。
-> 10. **DownloadBuildFullLog 返回 ZIP**：实测下载文件为 ZIP 压缩包（PK 头，内含 message.txt），非纯文本——get_log 工具层需解压后再清洗（log-cleaner.md 需补充）。
+| 11 | **ListRecords 空数据观察** | ⚠️ **2026-09-21 Layer 2 实调发现**：用 build_project_id=`a5e151e2-...`（任务 `maven-build-20260818` 的 build_project_id）调 ListRecords 返回 `total=-1, records=[]`，而该任务确有构建记录——build_project_id 口径（= ListJob 返回的 build_project_id）可能不一致，待进一步确认（详见 list_records.md） | ⚠️ |

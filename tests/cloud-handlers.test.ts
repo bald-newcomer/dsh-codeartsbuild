@@ -445,7 +445,7 @@ describe('listArtifactsHandler', () => {
 // ─── list_templates ───
 describe('listTemplatesHandler', () => {
 
-  it('成功：items→templates + template.steps 提取到顶层', async () => {
+  it('成功：items→templates + template.steps 提取到顶层（ListCustomTemplate）', async () => {
     const client = makeClient(() => ({
       result: {
         total_size: 1,
@@ -466,15 +466,17 @@ describe('listTemplatesHandler', () => {
     expect(data.templates[0].name).toBe('Maven 模板');
     expect(data.templates[0].steps[0].module_id).toBe('devcloud2018.codeci_action_20043.action');
     const [req] = client.call.mock.calls[0] as [{ path: string }];
-    expect(req.path).toBe('/v1/template/officialtemplates');
+    expect(req.path).toBe('/v1/template/custom');
   });
 
-  it('page/pageSize 转 string 透传', async () => {
+  it('page/pageSize/filter/tags 透传（实调确认：integer 直传）', async () => {
     const client = makeClient(() => ({ result: { items: [] } }));
-    await listTemplatesHandler(makeCtx(client) as never, { page: 1, pageSize: 50 });
-    const [req] = client.call.mock.calls[0] as [{ query: Record<string, string> }];
-    expect(req.query.page).toBe('1');
-    expect(req.query.page_size).toBe('50');
+    await listTemplatesHandler(makeCtx(client) as never, { page: 1, pageSize: 50, filter: 'maven', tags: 'codeci' });
+    const [req] = client.call.mock.calls[0] as [{ query: Record<string, unknown> }];
+    expect(req.query.page).toBe(1);
+    expect(req.query.page_size).toBe(50);
+    expect(req.query.filter).toBe('maven');
+    expect(req.query.tags).toBe('codeci');
   });
 
   it('name 超 115 应抛 E_PARAM', async () => {

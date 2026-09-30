@@ -1,6 +1,6 @@
 /**
  * 输出规范化工具（snake_case → camelCase + 状态枚举映射）
- * 对齐 tool-details.md §1.2（输出命名 camelCase）+ api-contract.md §4.1（状态映射表）
+ * 对齐 FE-03-工具详细设计-20260918.md §1.2（输出命名 camelCase）+ api-contract.md §4.1（状态映射表）
  */
 
 /**

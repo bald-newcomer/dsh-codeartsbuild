@@ -23,8 +23,8 @@ export const inject = ['tools'];
 
 /** 插件配置 schema（cordis.patch.yml config 段校验 + 默认值） */
 export interface Config {
-  /** 凭据源：hcloud-config（默认，复用 ~/.hcloud/config.json）或 env（CAB_AK/CAB_SK） */
-  credentialSource?: 'hcloud-config' | 'env';
+  /** 凭据源：env / file；缺省自动探测（CAB_AK → env；cwd .dsh-codearts → file） */
+  credentialSource?: 'env' | 'file';
   /** 内网代理（如 http://proxycn2.huawei.com:8080） */
   proxyUrl?: string;
   /** region（决定 endpoint；默认 cn-north-4） */
@@ -32,7 +32,7 @@ export interface Config {
 }
 
 export const Config = schema.object({
-  credentialSource: schema.union(['hcloud-config', 'env']).default('hcloud-config').description('凭据源：hcloud-config（复用 ~/.hcloud/config.json）或 env（CAB_AK/CAB_SK）'),
+  credentialSource: schema.union(['env', 'file']).required(false).description('凭据源：env（CAB_AK/CAB_SK/CAB_REGION）/ file（工作目录 .dsh-codearts）；缺省自动探测（CAB_AK → env；cwd 有 .dsh-codearts → file）'),
   proxyUrl: schema.string().description('内网代理（可选）').required(false),
   region: schema.string().default('cn-north-4').description('region，决定 endpoint'),
 });

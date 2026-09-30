@@ -1,6 +1,6 @@
 /**
  * 本地构建 — 产物收集（glob 扫描）
- * 对齐 repo-analyzer.md §4.2 + artifacts.md §4（type: local 统一结构体）
+ * 对齐 FE-01-本地代码仓构建流程设计-20260919.md §4.2 + artifacts.md §4（type: local 统一结构体）
  */
 import fs from 'node:fs';
 import path from 'node:path';

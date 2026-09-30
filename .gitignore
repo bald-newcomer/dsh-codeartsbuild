@@ -3,11 +3,12 @@ dist/
 lib/
 *.log
 .env
+.cac
 .env.local
+.dsh-codearts
 .DS_Store
 .idea/
 .opencode/
-docs/临时*.md
 docs/example/
 
 # npm/pnpm 打包产物与锁文件（插件库不入 lock）

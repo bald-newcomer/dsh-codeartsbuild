@@ -1,6 +1,6 @@
 /**
  * template-assembler 组装器单测（Layer 1，不需网络）
- * 对齐 template-validation-suite.md §7.2（24 用例：TV-01~17 组合 + TV-E01~E07 边界）
+ * 对齐 TEST-01-模板验证测试套件设计-20260918.md §7.2（24 用例：TV-01~17 组合 + TV-E01~E07 边界）
  */
 import { describe, it, expect } from 'vitest';
 import {
