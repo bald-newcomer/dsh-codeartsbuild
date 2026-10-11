@@ -45,8 +45,11 @@ docs/
 | [FE-05-华为云调用承载方案对比评审决策-20260920.md](design/FE-05-华为云调用承载方案对比评审决策-20260920.md) | ✅ | 独立迭代特性：SDK → 自建 HTTP 承载方案对比评审决策 |
 | [FE-06-自建HTTP承载切换方案-20260920.md](design/FE-06-自建HTTP承载切换方案-20260920.md) | ✅ | 自建 HTTP 承载切换实施计划（认证设计、HTTP 客户端封装、实施步骤、回滚条件） |
 | [FE-07-构建任务创建工作流优化-20260922.md](design/FE-07-构建任务创建工作流优化-20260922.md) | ✅ | 构建任务创建工作流优化（基于人工测试失败复盘：模板环境锚点、scm 字段来源强制、本地/远端仓库流程） |
-| [FE-08-本地远端仓库方案探索-20260923.md](design/FE-08-本地远端仓库方案探索-20260923.md) | ✅ | CodeArtsRepo 仓库方案探索（接口实测清单、本地推送链路、repo_prepare 形态决策，§7 2026-09-28 调整） |
+| [FE-08-本地远端仓库方案探索-20260923.md](design/FE-08-本地远端仓库方案探索-20260923.md) | ✅ | CodeArtsRepo 仓库方案探索（接口实测清单、本地推送链路、repo_prepare 形态决策；§7 2026-09-28 调整、§8 2026-10-10 形态 B：repo_push 独立推送工具） |
 | [FE-09-S1实测scm编排缺陷分析与解决评估-20260928.md](design/FE-09-S1实测scm编排缺陷分析与解决评估-20260928.md) | ✅ | S1 真实会话轨迹暴露的 scm 编排缺陷分析（repo_prepare 已有远端缺 repo_id / create_job 硬试超限 / agencyUrn 绕过）+ 5 方案评估 |
+| [FE-10-冗长handler结构优化重构-20261008.md](design/FE-10-冗长handler结构优化重构-20261008.md) | ✅ | 冗长 handler 纯结构重构（repo_prepare/wait_build/create_job 提取辅助函数，零行为变更，182 单测原样通过） |
+| [FE-11-step模板可用版本枚举迁移-20261009.md](design/FE-11-step模板可用版本枚举迁移-20261009.md) | 📐 | step-index.json 的 select 枚举迁移到 step-templates.json（消除模型臆造版本号根因，会话轨迹暴露 nodejs16.13.0 不存在缺陷） |
+| [FE-12-推送链路串联与git操作规约-20261011.md](design/FE-12-推送链路串联与git操作规约-20261011.md) | 📐 | 8155dd01 会话 4 优化点设计：repo_push remoteUrl 自动探测 / 宿主 git 操作规约（禁 reset --hard）/ SKILL 串联 / 产物链路引导 |
 
 ### 测试设计层（test/）
 
@@ -62,7 +65,7 @@ docs/
 | 文档 | 状态 | 说明 |
 |------|------|------|
 | [api-contract.md](api/api-contract.md) | ✅ | 17 原子工具契约（唯一事实来源）、工作流编排、禁用 v3/v4 旧版接口（仅 v1）、状态枚举 |
-| [tools/](api/tools/) | ✅ | 各工具契约详情（17 个文件，按工具拆分） |
+| [tools/](api/tools/) | ✅ | 各工具契约详情（18 个文件，按工具拆分） |
 | [koocli-operation-reference.md](api/koocli-operation-reference.md) | ✅ | KooCLI 操作列表参考资料（HTTP 实现接口名 ↔ URL 对照，实测归档） |
 
 ### 运维/用户文档层（operations/）
@@ -81,7 +84,7 @@ docs/
 ```
 prd.md
     → architecture/architecture.md（需求→架构）
-    → design/FE-01..07（架构→特性设计）
+    → design/FE-01..10（架构→特性设计）
     → api/api-contract.md（架构+特性设计→契约）
     → operations/*.md（契约→用户文档）
     → test/TEST-01..04（契约+需求→测试设计）

@@ -253,7 +253,13 @@ dsh-codeartsbuild/                      # dsh 插件（bundle），唯一终端�
     │   ├── FE-03-工具详细设计.md                 # 16 工具详细设计（create_job 详尽）
     │   ├── FE-04-Step模板库拆解.md               # Step 模板库（官方模板拆解，create_job 组装资产）
     │   ├── FE-05-华为云调用承载方案对比评审决策.md # 承载方案评审决策（独立迭代特性）
-    │   └── FE-06-自建HTTP承载切换方案.md         # HTTP 承载切换实施计划
+    │   ├── FE-06-自建HTTP承载切换方案.md         # HTTP 承载切换实施计划
+    │   ├── FE-07-构建任务创建工作流优化.md        # create_job 工作流优化（scm 来源强制）
+    │   ├── FE-08-本地远端仓库方案探索.md          # repo_prepare 形态探索（独立工具决策；2026-10-10 形态 B：repo_push 独立推送工具）
+    │   ├── FE-09-S1实测scm编排缺陷分析与解决评估.md # S1 实测缺陷链分析与修复
+    │   ├── FE-10-冗长handler结构优化重构.md       # 冗长 handler 纯结构重构（repo_prepare/wait_build/create_job）
+    │   ├── FE-11-step模板可用版本枚举迁移.md       # step-index.json select 迁移到 step-templates.json（消除模型臆造版本号）
+    │   └── FE-12-推送链路串联与git操作规约.md       # repo_push remoteUrl 自动探测 / 宿主 git 操作规约 / SKILL 串联 / 产物链路
     ├── api/                             # 接口契约层
     │   ├── api-contract.md              # 工具接口契约（唯一事实来源）
     │   ├── tools/                       # 各工具契约详情（按工具拆分）
@@ -458,7 +464,7 @@ interface LogError {
 
 ## 5. 工具契约
 
-> 工具契约（16 个原子工具入参/出参/URL/错误码/状态枚举）是**唯一事实来源**，完整定义见 `docs/api/api-contract.md`（各工具详情见 `docs/api/tools/*.md`）。本架构不再冗余摘录。
+> 工具契约（18 个原子工具入参/出参/URL/错误码/状态枚举）是**唯一事实来源**，完整定义见 `docs/api/api-contract.md`（各工具详情见 `docs/api/tools/*.md`）。本架构不再冗余摘录。
 
 ---
 
