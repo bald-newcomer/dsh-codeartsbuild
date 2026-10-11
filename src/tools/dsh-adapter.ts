@@ -68,8 +68,13 @@ const OUTPUT_SCHEMA = { type: 'object', additionalProperties: true };
 
 /**
  * 适配为 dsh 工具定义（defineTool 产物）
- * - execute(args)：调 handler → isError 抛错 → 成功返回 data
+ * - execute(args)：调 handler → isError 抛错 → 成功返回 data（合并 summary 为 _summary）
  * - output.render：把 value 转 text ContentBlock
+ *
+ * summary 送达说明（2026-10-09）：dsh 契约下 execute 只返回"声明的 JSON 值"，
+ * 模型可见内容完全由 output.render(value) 决定——handler 返回的 content（人类可读 summary）
+ * 若只留在 content 会被丢弃。故成功时把 content[0].text 合并进 data._summary，
+ * render 序列化后模型可见。_summary 为适配层保留键（下划线前缀，业务字段均为 snake_case 无冲突）。
  */
 export function toDshTool<TInput>(def: InternalToolDef<TInput>) {
   // 适配层内部：parameters/output/execute 类型经 dsh 编译器运行时校验，编译期放宽
@@ -89,7 +94,10 @@ export function toDshTool<TInput>(def: InternalToolDef<TInput>) {
       if (result.isError) {
         throw new Error(result.content?.[0]?.text ?? 'tool failed');
       }
-      return (result.data ?? { ok: true }) as never;
+      const data = result.data ?? {};
+      const summary = result.content?.[0]?.text;
+      // dsh 只见 render(value)：把人类可读 summary 合并进 data，避免 handler 的 content 通道被丢弃
+      return { ...(data as Record<string, unknown>), ...(summary ? { _summary: summary } : {}) } as never;
     },
   });
 }

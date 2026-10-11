@@ -28,7 +28,7 @@ export const createJobSchema = z.object({
   sourceCode: z.string().description('代码源类型（pipeline / codeci）').required(false),
   buildIfCodeUpdated: z.boolean().description('提交代码触发构建开关（默认 false）').required(false),
   autoUpdateSubModule: z.string().description('是否自动更新子模块（false/true，默认 false）').required(false),
-  agencyUrn: z.string().description('委托 urn').required(false),
+  agencyUrn: z.string().description('委托 urn（默认空/不使用；模型不得自行填写，须用户显式提供——曾发生模型用 agencyUrn + 空 scms 绕过 scm 链路致任务无代码源）').required(false),
   groupId: z.string().description('任务分组 ID').required(false),
 });
 

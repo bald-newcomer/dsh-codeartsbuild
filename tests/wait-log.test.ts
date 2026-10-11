@@ -21,8 +21,14 @@ function makeCtx(client: HttpClient) {
 // ─── wait_build ───
 describe('waitBuildHandler', () => {
 
-  it('终态立即返回（completed→SUCCESS）', async () => {
-    const client = makeClient(() => ({ result: { workflow: { status: 'completed' } } }));
+  it('终态立即返回（completed→SUCCESS，2026-10-10 起 completed 一律复核 record-info）', async () => {
+    // completed → wait_build 复核 record-info（双数据源不同步，record-info 为权威）→ SUCCESS
+    const calls = [
+      { result: { workflow: { status: 'completed' } } },
+      { result: { status: 'SUCCESS' } }, // record-info 复核
+    ];
+    let i = 0;
+    const client = makeClient(() => calls[i++]);
     const result = await waitBuildHandler(makeCtx(client) as never, {
       jobId: 'job-1',
       buildNo: 1,
@@ -32,7 +38,7 @@ describe('waitBuildHandler', () => {
 
     expect(result.isError).toBe(false);
     expect((result.data as { status: string }).status).toBe('SUCCESS');
-    expect(client.call).toHaveBeenCalledTimes(1);
+    expect(client.call).toHaveBeenCalledTimes(2);
     const [req] = client.call.mock.calls[0] as [{ path: string; query: Record<string, unknown> }];
     expect(req.path).toBe('/v1/job/job-1/status');
     expect(req.query.build_no).toBe(1);
@@ -85,10 +91,11 @@ describe('waitBuildHandler', () => {
     expect((result.data as { status: string }).status).toBe('CANCELED');
   });
 
-  it('running→RUNNING 不终态，轮询至 SUCCESS', async () => {
+  it('running→RUNNING 不终态，轮询至 SUCCESS（completed 复核 record-info）', async () => {
     const calls = [
       { result: { workflow: { status: 'running' } } },
       { result: { workflow: { status: 'completed' } } },
+      { result: { status: 'SUCCESS' } }, // completed 复核 record-info
     ];
     let i = 0;
     const client = makeClient(() => calls[i++]);
@@ -100,7 +107,7 @@ describe('waitBuildHandler', () => {
     });
 
     expect((result.data as { status: string }).status).toBe('SUCCESS');
-    expect(client.call).toHaveBeenCalledTimes(2);
+    expect(client.call).toHaveBeenCalledTimes(3);
   });
 
   it('超时返回 TIMEOUT + last_status（非异常）', async () => {

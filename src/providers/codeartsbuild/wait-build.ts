@@ -34,10 +34,14 @@ const DEFAULT_INTERVAL_MS = 10_000;
 const DEFAULT_TIMEOUT_MS = 1_800_000;
 const DEFAULT_MAX_BACKOFF_MS = 30_000;
 
+/** 网络抖动重试常量：单次查询最多发 1+2 次（间隔 2s），不影响退避计数 */
+const NETWORK_RETRY = 2;
+const NETWORK_RETRY_DELAY_MS = 2_000;
+
 /**
  * 用 ShowJobBuildRecordDetail（GET /v1/record/{job_id}/{build_no}/record-info）复核权威终态
  * 实调发现（2026-09-21）：ShowJobStepStatus 的 completed+error 可能是瞬态（日志 SUCCESS 但 error 有值），
- * record-info 的 result.status（SUCCESS/FAILED/ABORTED）为准。
+ * record-info 的 result.status（SUCCESS/FAILED/ABORTED）为准。复核失败不阻断——保留 step-status 映射结果。
  */
 async function verifyRecordStatus(jobId: string, buildNo: number, client: import('../../infra/http-client.js').HttpClient): Promise<string | null> {
   try {
@@ -49,16 +53,65 @@ async function verifyRecordStatus(jobId: string, buildNo: number, client: import
     if (!resp.result?.status) return null;
     return mapRecordStatus(resp.result.status);
   } catch {
-    // 复核失败不阻断——保留 step-status 的映射结果
     return null;
   }
 }
-const NETWORK_RETRY = 2;
-const NETWORK_RETRY_DELAY_MS = 2_000;
 
 /** 单次轮询等待（毫秒） */
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * 单次状态查询：网络抖动重试 ≤2 次（间隔 2s）
+ * @returns 成功返回响应；全部失败返回 null（由调用方区分业务/网络错误继续决策）
+ */
+async function fetchStatusWithRetry(
+  client: import('../../infra/http-client.js').HttpClient,
+  jobId: string,
+  buildNo: number,
+): Promise<ShowJobStepStatusResponse | null> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt <= NETWORK_RETRY; attempt++) {
+    try {
+      return await client.call<ShowJobStepStatusResponse>(
+        {
+          method: 'GET',
+          path: `/v1/job/${jobId}/status`,
+          query: { build_no: buildNo },
+        },
+        { idempotent: true, maxRetries: 1 }, // 内层只发 1 次（网络重试由本层 ≤2 次控制；maxRetries=0 会导致 HttpClient 循环不执行抛"未知原因"）
+      );
+    } catch (e) {
+      lastError = e;
+      if (attempt < NETWORK_RETRY) await sleep(NETWORK_RETRY_DELAY_MS);
+    }
+  }
+  // 非网络错误（业务错误如 E_AUTH/E_PARAM）由调用方立即抛出
+  if (lastError instanceof ToolException && lastError.code !== 'E_NETWORK') throw lastError;
+  return null;
+}
+
+/**
+ * 映射状态 + record-info 复核（completed 终态用 ShowJobBuildRecordDetail 复核权威终态）
+ * - 2026-09-21 发现：completed + error 非 null → workflow.error 可能是瞬态（日志 SUCCESS 但 error 有值 → 误判 FAILED），用 record-info 复核
+ * - 2026-10-10 发现（c6ca1e11 会话）：completed 且无 error → workflow 报 SUCCESS，但 record-info 实为 FAILED（数据源不同步），
+ *   模型困惑于 wait_build=SUCCESS vs get_status=FAILURE 矛盾——故 completed 一律复核 record-info 为准
+ */
+async function mapStatusWithVerify(
+  client: import('../../infra/http-client.js').HttpClient,
+  jobId: string,
+  buildNo: number,
+  rawStatus: string | undefined,
+  workflowError: unknown,
+): Promise<string> {
+  let mappedStatus = mapWorkflowStatus(rawStatus, workflowError);
+  // completed 终态一律复核 record-info（双数据源不同步，record-info 为权威——契约 §4.1 实调结论）
+  if (rawStatus === 'completed') {
+    const verified = await verifyRecordStatus(jobId, buildNo, client);
+    if (verified) mappedStatus = verified;
+  }
+  return mappedStatus;
 }
 
 /**
@@ -109,28 +162,9 @@ export async function waitBuildHandler(ctx: CloudToolContext, input: WaitBuildHa
         );
       }
 
-      // 单次查询：网络抖动重试 ≤2 次（间隔 2s），不影响退避计数
-      let resp: ShowJobStepStatusResponse | null = null;
-      let lastError: unknown = null;
-      for (let attempt = 0; attempt <= NETWORK_RETRY; attempt++) {
-        try {
-          resp = await ctx.client.call<ShowJobStepStatusResponse>(
-            {
-              method: 'GET',
-              path: `/v1/job/${input.jobId}/status`,
-              query: { build_no: input.buildNo },
-            },
-            { idempotent: true, maxRetries: 1 }, // 内层只发 1 次（网络重试由本层 ≤2 次控制；maxRetries=0 会导致 HttpClient 循环不执行抛"未知原因"）
-          );
-          break;
-        } catch (e) {
-          lastError = e;
-          if (attempt < NETWORK_RETRY) await sleep(NETWORK_RETRY_DELAY_MS);
-        }
-      }
+      // 单次查询（网络抖动重试 ≤2 次；非网络错误直接抛出）
+      const resp = await fetchStatusWithRetry(ctx.client, input.jobId, input.buildNo);
       if (!resp) {
-        // 非网络错误（业务错误如 E_AUTH/E_PARAM）立即抛出
-        if (lastError instanceof ToolException && lastError.code !== 'E_NETWORK') throw lastError;
         // 网络错误：连续失败计数，达到上限才终止；否则当作抖动继续下一轮
         consecutiveNetworkFailures++;
         if (consecutiveNetworkFailures >= MAX_CONSECUTIVE_NETWORK_FAILURES) {
@@ -142,20 +176,10 @@ export async function waitBuildHandler(ctx: CloudToolContext, input: WaitBuildHa
       }
       consecutiveNetworkFailures = 0;
 
-      // 映射状态（§4.1：running→RUNNING、completed→SUCCESS/FAILED 结合 workflow.error、aborted→CANCELED）
+      // 映射状态（§4.1：running→RUNNING、completed→SUCCESS/FAILED 结合 workflow.error、aborted→CANCELED）+ 终态复核
       const workflow = resp.result?.workflow ?? {};
-      const rawStatus = workflow.status;
-      let mappedStatus = mapWorkflowStatus(rawStatus, workflow.error);
+      lastStatus = await mapStatusWithVerify(ctx.client, input.jobId, input.buildNo, workflow.status, workflow.error);
       lastStartTime = lastStartTime ?? null;
-
-      // 实调发现（2026-09-21）：completed + error 非 null 时，workflow.error 可能是瞬态/非终态
-      // （日志 Finished: SUCCESS 且 record-info=SUCCESS，但 error 有值 → 误判 FAILED）。
-      // 处理：completed + 非取消类 error → 用 ShowJobBuildRecordDetail（record-info）复核权威终态。
-      if (rawStatus === 'completed' && workflow.error && mappedStatus === 'FAILED') {
-        const verified = await verifyRecordStatus(input.jobId, input.buildNo, ctx.client);
-        if (verified) mappedStatus = verified;
-      }
-      lastStatus = mappedStatus;
 
       // 终态判定（§4.2）
       if (TERMINAL_STATUSES.has(lastStatus)) {

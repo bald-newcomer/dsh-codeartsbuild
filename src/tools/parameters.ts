@@ -19,7 +19,7 @@ export const createJobParameters: Record<string, unknown> = {
       type: 'object',
       additionalProperties: false,
       properties: {
-        step: { type: 'string', description: 'template_id 或 module_id' },
+        step: { type: 'string', description: 'template_id（推荐，如 maven-build/npm-build/shell-command，见 step-templates.md 模板清单）或全限定 module_id（仅高级 steps 数组用）；优先 template_id' },
         properties: { type: 'object', additionalProperties: true, description: '覆盖该步默认参数' },
       },
     },
@@ -48,8 +48,8 @@ export const createJobParameters: Record<string, unknown> = {
   sourceCode: { type: 'string', description: '代码源类型（pipeline/codeci）' },
   buildIfCodeUpdated: { type: 'boolean', description: '提交代码触发构建开关' },
   autoUpdateSubModule: { type: 'string', description: '自动更新子模块' },
-  agencyUrn: { type: 'string', description: '委托 urn' },
-  groupId: { type: 'string', description: '任务分组 ID' },
+  agencyUrn: { type: 'string', description: '委托 urn（默认空/不使用；模型不得自行填写，须用户显式提供——曾发生模型用 agencyUrn + 空 scms 绕过 scm 链路致任务无代码源）' },
+  groupId: { type: 'string', description: '任务分组 ID（非空须来自 get_job 回读的已有分组或用户显式确认，禁止臆造——曾触发 422 分组不存在）' },
 };
 
 /** list_projects 参数（无） */
@@ -74,8 +74,8 @@ export const getJobParameters: Record<string, unknown> = {
 
 /** update_job 参数（契约 §2.5） */
 export const updateJobParameters: Record<string, unknown> = {
-  jobId: { type: 'string', description: '构建任务 ID', required: true },
-  body: { type: 'object', additionalProperties: true, description: '与 create_job 同构的全量配置片段（含 arch/projectId/jobName/steps）', required: true },
+  jobId: { type: 'string', description: '构建任务 ID（先 get_job 取原配置，jobId 来自 get_job/list_jobs 返回）', required: true },
+  body: { type: 'object', additionalProperties: true, description: '与 create_job 同构的全量配置片段（含 arch/projectId/jobName/steps 或 stepsPlan/language）；全量覆盖语义——必须先 get_job 取原配置，修改后整体提交，禁止手拼残缺 body', required: true },
 };
 
 /** delete_job 参数（契约 §2.6） */
@@ -170,6 +170,17 @@ export const repoPrepareParameters: Record<string, unknown> = {
   branch: { type: 'string', description: '推送分支（默认 master；push 由模型执行时使用）' },
 };
 
+/** repo_push 参数（FE-08 §5 形态 B：内置一次智能尝试，2026-10-10） */
+export const repoPushParameters: Record<string, unknown> = {
+  repoPath: { type: 'string', description: '本地 git 仓库绝对路径', required: true },
+  projectUuid: { type: 'string', description: '目标项目 UUID（32 位小写数字字母，= 会话 projectId）', required: true },
+  repoName: { type: 'string', description: '仓库名（默认取目录名）' },
+  branch: { type: 'string', description: '推送分支（默认 master）' },
+  remoteUrl: { type: 'string', description: '目标 codehub 远端地址（默认取 repo_prepare 输出 remote_url）' },
+  proxyUrl: { type: 'string', description: '内网代理（默认 http://proxycn2.huawei.com:8080，可被环境覆盖）' },
+  sslVerify: { type: 'boolean', description: '是否关闭 SSL 校验（默认 false=内网自签名证书）' },
+};
+
 /** 通用导出（供 tools/index.ts 组装 InternalToolDef） */
 export const TOOL_PARAMETERS: Record<string, Record<string, unknown>> = {
   codeartsbuild_create_job: createJobParameters,
@@ -189,6 +200,7 @@ export const TOOL_PARAMETERS: Record<string, Record<string, unknown>> = {
   codeartsbuild_get_log: getLogParameters,
   codeartsbuild_repo_build: repoBuildParameters,
   codeartsbuild_repo_prepare: repoPrepareParameters,
+  codeartsbuild_repo_push: repoPushParameters,
 };
 
 export type { InternalToolDef };
