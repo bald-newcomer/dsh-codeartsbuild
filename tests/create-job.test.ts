@@ -289,4 +289,151 @@ describe('createJobHandler', () => {
 
     expect(mockCall).toHaveBeenCalledTimes(1);
   });
+
+  // ─── 2026-10-10：stepsPlan 裸 module_id 前置引导 / groupId 臆造防御 / scms URL 项目一致性 ───
+
+  it('stepsPlan 臆造裸 module_id 应抛 E_PARAM 并列出可用 template_id', async () => {
+    const ctx = makeCtx({});
+    const result = await createJobHandler(
+      ctx,
+      makeInput({ stepsPlan: [{ step: 'devcloud2018.codeci_action_20040', properties: { command: 'npm install' } }] }),
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('E_PARAM');
+    expect(result.content[0].text).toContain('未匹配模板');
+    expect(result.content[0].text).toContain('template_id');
+    expect(result.content[0].text).toContain('npm-build');
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it('stepsPlan 用合法 template_id 正常放行', async () => {
+    const ctx = makeCtx({});
+    await createJobHandler(
+      ctx,
+      makeInput({ stepsPlan: [{ step: 'npm-build', properties: { command: 'npm install && npm run build' } }] }),
+    );
+
+    expect(mockCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('stepsPlan 用全限定 module_id（白名单内）正常放行', async () => {
+    const ctx = makeCtx({});
+    await createJobHandler(
+      ctx,
+      makeInput({ stepsPlan: [{ step: 'devcloud2018.codeci_action_20014.action' }] }),
+    );
+
+    expect(mockCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('groupId 臆造（非空）应抛 E_PARAM 提示来源', async () => {
+    const ctx = makeCtx({});
+    const result = await createJobHandler(ctx, makeInput({ groupId: 'dsh-quant-group' }));
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('E_PARAM');
+    expect(result.content[0].text).toContain('臆造');
+    expect(result.content[0].text).toContain('get_job');
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it('groupId 为空/缺省正常放行', async () => {
+    const ctx = makeCtx({});
+    await createJobHandler(ctx, makeInput({ groupId: undefined }));
+
+    expect(mockCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('scms[].url 项目 UUID 与会话 projectId 不一致应抛 E_PARAM（禁止跨项目）', async () => {
+    const ctx = makeCtx({});
+    const result = await createJobHandler(
+      ctx,
+      makeInput({
+        scms: [{
+          scm_type: 'codehub',
+          repo_id: 'repo-1',
+          url: 'https://codehub.devcloud.cn-north-4.huaweicloud.com/99999999999999999999999999999999/dsh-quant.git',
+        }],
+      }),
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('E_PARAM');
+    expect(result.content[0].text).toContain('不一致');
+    expect(result.content[0].text).toContain('99999999999999999999999999999999');
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it('scms[].url 项目 UUID 与会话 projectId 一致正常放行', async () => {
+    const ctx = makeCtx({});
+    await createJobHandler(
+      ctx,
+      makeInput({
+        scms: [{
+          scm_type: 'codehub',
+          repo_id: 'repo-1',
+          url: 'https://codehub.devcloud.cn-north-4.huaweicloud.com/a1b2c3d4e5f60718293a4b5c6d7e8f90/demo.git',
+        }],
+      }),
+    );
+
+    expect(mockCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('scms[].url 不可解析（非 codehub 格式）正常放行', async () => {
+    const ctx = makeCtx({});
+    await createJobHandler(
+      ctx,
+      makeInput({
+        scms: [{ scm_type: 'codehub', repo_id: 'repo-1', url: 'git@codehub:unknown-host:repo.git' }],
+      }),
+    );
+
+    expect(mockCall).toHaveBeenCalledTimes(1);
+  });
+
+  // ─── 2026-10-10（FE-11 延伸）：image 臆造拦截（c6ca1e11 会话 nodejs18.0.0 等 6 轮空转）───
+
+  it('steps 覆盖臆造 image（nodejs18.0.0）应抛 E_PARAM 列可用镜像', async () => {
+    const ctx = makeCtx({});
+    const result = await createJobHandler(
+      ctx,
+      makeInput({
+        steps: [{ module_id: 'devcloud2018.codeci_action_20014.action', name: 'Npm构建', properties: { image: 'nodejs18.0.0' } }],
+      }),
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('E_PARAM');
+    expect(result.content[0].text).toContain('不在可用镜像列表');
+    expect(result.content[0].text).toContain('nodejs20');
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it('stepsPlan 覆盖臆造 image 应抛 E_PARAM（不触发 HTTP）', async () => {
+    const ctx = makeCtx({});
+    // makeInput 默认含显式 steps（最高优先）——清掉 steps 让 stepsPlan 生效
+    const result = await createJobHandler(
+      ctx,
+      makeInput({ steps: undefined, stepsPlan: [{ step: 'npm-build', properties: { image: 'nodejs99' } }] }),
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('E_PARAM');
+    expect(result.content[0].text).toContain('不在可用镜像列表');
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it('steps 覆盖 image_select 内的合法镜像（nodejs20）正常放行', async () => {
+    const ctx = makeCtx({});
+    await createJobHandler(
+      ctx,
+      makeInput({
+        steps: [{ module_id: 'devcloud2018.codeci_action_20014.action', name: 'Npm构建', properties: { image: 'nodejs20' } }],
+      }),
+    );
+
+    expect(mockCall).toHaveBeenCalledTimes(1);
+  });
 });

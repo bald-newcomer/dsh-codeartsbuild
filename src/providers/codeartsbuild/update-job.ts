@@ -30,15 +30,19 @@ export async function updateJobHandler(ctx: CloudToolContext, input: UpdateJobHa
   try {
     // ① 业务校验
     if (!input.jobId || input.jobId.trim().length === 0) {
-      throw new ToolException('E_PARAM', 'jobId 为空');
+      throw new ToolException('E_PARAM', 'jobId 为空', 'update_job 须先 get_job 取原配置（jobId 来自 get_job/list_jobs 返回）');
     }
-    const body = input.body ?? {};
-    if (typeof body !== 'object' || Object.keys(body).length === 0) {
-      throw new ToolException('E_PARAM', 'body 为空对象', '全量覆盖语义：须先 get_job 取原配置，修改后整体提交');
+    const body = input.body;
+    if (typeof body !== 'object' || body === null || Array.isArray(body) || Object.keys(body).length === 0) {
+      throw new ToolException(
+        'E_PARAM',
+        `body 非法（须为对象，实际: ${typeof body}）`,
+        '全量覆盖语义：先 get_job 取原配置，修改后整体提交——body 必须为对象且非空（含 arch/jobName/steps 或 stepsPlan/language 等核心字段）',
+      );
     }
     // body 缺核心字段（arch/jobName/steps 三选一）→ E_PARAM（assembleConfig 校验 steps；此处补 arch/jobName）
     if (!body.arch || !body.jobName) {
-      throw new ToolException('E_PARAM', 'body 缺核心字段', '全量覆盖语义：body 须含 arch/jobName/steps（或 stepsPlan/language）');
+      throw new ToolException('E_PARAM', 'body 缺核心字段', '全量覆盖语义：body 须含 arch/jobName/steps（或 stepsPlan/language）——先 get_job 取原配置再改，禁止手拼残缺 body');
     }
 
     // ② projectId 解析（body.projectId 显式 > 会话 > 配置）

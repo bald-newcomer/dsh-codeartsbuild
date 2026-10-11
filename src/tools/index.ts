@@ -21,6 +21,7 @@ import { listTemplatesHandler, type ListTemplatesHandlerInput } from '../provide
 import { waitBuildHandler, type WaitBuildHandlerInput } from '../providers/codeartsbuild/wait-build.js';
 import { getLogHandler, type GetLogHandlerInput } from '../providers/codeartsbuild/get-log.js';
 import { repoPrepareHandler, type RepoPrepareHandlerInput } from '../providers/codeartsbuild/repo-prepare.js';
+import { repoPushHandler, type RepoPushHandlerInput } from '../providers/codeartsbuild/repo-push.js';
 import { repoBuildHandler, type RepoBuildHandlerInput } from '../providers/local-build/index.js';
 import { toDshTool, type InternalToolDef } from './dsh-adapter.js';
 import { TOOL_PARAMETERS } from './parameters.js';
@@ -31,7 +32,7 @@ function cloudTool<TInput>(name: string, description: string, handler: InternalT
   return { name, description, parameters: TOOL_PARAMETERS[name] ?? {}, handler };
 }
 
-/** 全部工具定义（16 个原子工具，dsh 契约） */
+/** 全部工具定义（18 个原子工具，dsh 契约） */
 export function buildTools(): ToolDefinition[] {
   // 不同工具的输入类型各异，统一为宽松 InternalToolDef（dsh execute 参数为未知 JSON）
   const defs: InternalToolDef<any>[] = [
@@ -50,7 +51,14 @@ export function buildTools(): ToolDefinition[] {
     cloudTool<ListTemplatesHandlerInput>('codeartsbuild_list_templates', '列出用户自定义模板（创建前检查可用模板）', listTemplatesHandler),
     cloudTool<WaitBuildHandlerInput>('codeartsbuild_wait_build', '轮询等待构建进入终态（超时返回 TIMEOUT 非异常）', waitBuildHandler),
     cloudTool<GetLogHandlerInput>('codeartsbuild_get_log', '获取构建日志（自动解压 + 结构化清洗）', getLogHandler),
-    cloudTool<RepoPrepareHandlerInput>('codeartsbuild_repo_prepare', '本地 git 仓库准备 CodeArtsRepo 仓库（检测远端→建仓+回读 RepoInfo，返回 remote_url + 推送指引；实际 push 由模型用宿主命令工具执行）', repoPrepareHandler),
+    cloudTool<RepoPrepareHandlerInput>('codeartsbuild_repo_prepare', '本地 git 仓库准备 CodeArtsRepo 仓库（检测远端→建仓+回读 RepoInfo，返回 remote_url + 推送指引；实际 push 由 repo_push 接手）', repoPrepareHandler),
+    {
+      name: 'codeartsbuild_repo_push',
+      description: '本地仓库推送代码到 CodeArtsRepo（内置一次智能尝试：代理+SSL 自动携带、origin 项目归属预检、失败分类输出 next_actions）',
+      parameters: TOOL_PARAMETERS.codeartsbuild_repo_push ?? {},
+      handler: repoPushHandler as InternalToolDef<RepoPushHandlerInput>['handler'],
+      local: true,
+    },
     {
       name: 'codeartsbuild_repo_build',
       description: '本地构建（探测/编译指导/执行/产物/留档 内置）',

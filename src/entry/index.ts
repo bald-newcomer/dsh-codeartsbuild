@@ -38,7 +38,7 @@ export const Config = schema.object({
 });
 
 /**
- * 插件入口：注册 16 个 CodeArtsBuild 工具
+ * 插件入口：注册 18 个 CodeArtsBuild 工具
  * @param ctx cordis 上下文（注入 tools 服务）
  * @param config 插件配置（经 Config schema 校验 + 默认值填充）
  */
