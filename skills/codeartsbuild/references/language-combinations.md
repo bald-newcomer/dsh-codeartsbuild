@@ -38,6 +38,8 @@
 | 产物传 OBS | `20057` 上传 OBS 对象（artifactSourcePath/backetName） | 产物 → OBS 桶交付 |
 | 从 OBS 拉取 | `20063` 下载 OBS 对象（bucketName/objectKey） | 依赖/产物下载 |
 
+> **产物交付说明（FE-12 P4，2026-10-11）**：`language` 组合**已含上传步骤**（`20018` 上传软件包 / `20004` 镜像 / `20057` OBS）——用 `language` 速选创建的组合默认交付产物。但用户**手拼 `stepsPlan`/`steps`** 时若漏了上传步骤，构建会成功但 `list_artifacts` 为空（8155dd01 实测：TS 项目只配 npm-build，产物留在 lib/ 不交付）。手拼步骤时记得按交付目标补 `upload-release`（`20018`）或对应上传步骤；`upload-release` 的 `file` 通配按项目改（Maven `**/target/*.?ar`，npm `**/dist/*`）。
+
 ## 不维护插件（不用）
 
 以下语言/工具的官方插件**不维护**，不在模板和 create_job 中使用；如需构建对应场景，走**自定义构建环境**（`20017` shell + 自定义 image）或自定义执行机 linux 模式：

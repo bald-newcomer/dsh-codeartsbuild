@@ -89,11 +89,11 @@ dsh --profile headless --dump-config | grep codeartsbuild
 #         - id: codeartsbuild
 ```
 
-### 3.2 工具冒烟（17 个工具可见）
+### 3.2 工具冒烟（18 个工具可见）
 
 ```bash
 dsh --profile headless "列出你有哪些工具"
-# 预期：codeartsbuild_create_job / repo_build / repo_prepare / list_projects 等 17 个全可见
+# 预期：codeartsbuild_create_job / repo_build / repo_prepare / repo_push / list_projects 等 18 个全可见
 ```
 
 ### 3.3 真实云 API 调用验证（凭据生效）

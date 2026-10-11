@@ -1,6 +1,6 @@
 # 🏗️ CodeArtsBuild — 一切皆插件的构建生命周期管理（dsh 插件）
 
-> **AI-native & dsh-native 的华为云 CodeArts Build 构建工具包** — 17 个原子工具 · 6 大场景
+> **AI-native & dsh-native 的华为云 CodeArts Build 构建工具包** — 18 个原子工具 · 6 大场景
 > （本地构建 / 项目感知 / 任务编排 / 执行控制 / 状态监控 / 产物与日志）· 一条完整的
 > `本地验证 → 云端构建 → 失败诊断` 闭环。**契约即实现，实测即事实。**
 
@@ -111,12 +111,13 @@ wait_build(FAILED) → get_record（取 record_id）→ get_log（拉取+ZIP 解
 
 指定分支构建 / 查询历史 / 停止构建等日常操作，均一句话触发（见 SKILL 建议操作路径）。
 
-## 🛠️ 工具清单（17 个）
+## 🛠️ 工具清单（18 个）
 
 | 场景 | 工具 | 说明 |
 |------|------|------|
 | **本地构建** | `codeartsbuild_repo_build` | 本地构建（探测/指导/执行/产物/留档内置，模型自决） |
-| | `codeartsbuild_repo_prepare` | 本地仓库准备 CodeArtsRepo（建仓+回读 RepoInfo；push 由模型自探索） |
+| | `codeartsbuild_repo_prepare` | 本地仓库准备 CodeArtsRepo（建仓+回读 RepoInfo） |
+| | `codeartsbuild_repo_push` | 推送本地仓库代码到 CodeArtsRepo（一次智能尝试+失败分类） |
 | **项目感知** | `codeartsbuild_list_projects` | 项目列表（v1 `ShowRelatedProject`） |
 | | `codeartsbuild_list_jobs` | 任务列表（全局搜索） |
 | | `codeartsbuild_get_job` | 任务详情（v1 `ShowJobConfig`） |
