@@ -15,6 +15,7 @@
 | v0.3.0 | 2026-09-20 | **承载反转（SDK → 自建 HTTP）**：认证模型改为 **AK/SK 签名**（`AKSKSigner`，无 IAM token 依赖）；移除 KooCLI 表述；凭据源 hcloud-config / env |
 | v0.4.0 | 2026-09-28 | **新增工作目录 `.dsh-codearts` 凭据源（file）**：key=value 行格式合入 env（已有环境变量优先）；默认探测链扩展（env → file → hcloud-config）；`.gitignore` 默认忽略 + 安全警示 |
 | v0.5.0 | 2026-09-30 | **移除 hcloud-config 凭据源**：凭据源收敛为 `env` / `file` 两种；默认探测链改为（env → file → 报 E_CONFIG）；`HcloudConfigCredentialProvider` 已删除 |
+| v0.6.0 | 2026-10-28 | **新增 CodeArtsRepo 推码令牌 `CAB_CODEARTSREPO_TOKEN`**（FE-15）：与 AK/SK 分离，供 `repo_push`/`get_push_credential` 注入 `private-token` 认证 URL；§2.4 新增配置说明 + §5 变量表 |
 
 ---
 
@@ -86,6 +87,33 @@ plugins:
 | `env` | EnvCredentialProvider | CI/容器环境（CAB_AK/CAB_SK/CAB_REGION） |
 | `file` | 读取工作目录 `.dsh-codearts` 合入 env | 按项目隔离凭据、不想污染全局环境 |
 
+### 2.4 第四类凭据：CodeArtsRepo 推码令牌（`CAB_CODEARTSREPO_TOKEN`，FE-15）
+
+**与 AK/SK 完全分离**：AK/SK 只用于云侧 API 签名（`Authorization: SDK-HMAC-SHA256 ...`），**不得**拼进 git 远端 URL（实测 `https://AK:SK@codehub...` 被拒 `CH.00905401`）。推送代码须用 **CodeArtsRepo HTTPS 访问令牌**。
+
+**获取**：CodeArts 控制台 → 个人设置 → 代码托管 → 访问令牌。
+
+**配置（三选一，优先级从高到低）**：
+
+| 方式 | 写法 | 适用 |
+|------|------|------|
+| 显式入参 | `repo_push({ ..., accessToken: '<TOKEN>' })` / `get_push_credential({ remoteUrl, accessToken })` | 一次性/临时 |
+| 环境变量 | `export CAB_CODEARTSREPO_TOKEN=<TOKEN>` | CI/容器 |
+| `.dsh-codearts` 文件 | 追加一行 `CAB_CODEARTSREPO_TOKEN=<TOKEN>` | 按项目隔离 |
+
+```bash
+# .dsh-codearts（与 CAB_AK/CAB_SK 并列，key=value 行格式）
+CAB_AK=<AK>
+CAB_SK=<SK>
+CAB_CODEARTSREPO_TOKEN=<TOKEN>
+```
+
+> 读取复用 `loadFileEnv()`（与 AK/SK 的 file 源同一实现）；**已有环境变量优先，不覆盖**。
+
+**使用方式**：`repo_push` 自动构造 `https://private-token:<TOKEN>@codehub...` 一次性 push URL，经 `git -c remote.origin.url=...` 进程级覆盖（**不写 `.git/config`、不改 origin、不进输出**）。`repo_push` 失败后转宿主命令（pwsh/bash）推送前，先调 `get_push_credential` 取 `authed_url` + 可直接复制的 `commands`，**禁止自行拼 URL**（`oauth2:`/裸 token 拼法均被拒）。
+
+> **HTTPS 令牌用户名固定为 `private-token`**（实测，会话 58dccf5f/63534983）。
+
 ---
 
 ## 3. 签名机制（AK/SK 签名）
@@ -110,6 +138,9 @@ Authorization: SDK-HMAC-SHA256 Access=<AK>, SignedHeaders=content-type;host;x-sd
 | `region not supported` | 区域错误 | 检查 `CAB_REGION`，使用 CodeArtsBuild 支持的区域 |
 | `E_CONFIG` 未配置凭据 | 无 `CAB_AK` 且无 `.dsh-codearts` | 按 §2 配置环境变量或 `.dsh-codearts` 文件 |
 | 网络不通 | 无法访问华为云 | 检查网络/代理（参考 `proxy-setup` 技能配置内网代理）；实测需 `HTTPS_PROXY` 或 `proxyUrl` + `NODE_TLS_REJECT_UNAUTHORIZED=0`（Windows schannel 证书吊销检查失败） |
+| git push `CH.00905401 Access denied` | 拼错凭据形式（`AK:SK` / 裸 token / `oauth2:`） | 用 `repo_push` 的 `accessToken` 或 `get_push_credential` 取 `private-token` 认证 URL（§2.4），勿自行拼接 |
+| `repo_push` 返回 `missing_credentials` | 无 accessToken 且本地无凭据（URL 未内嵌 / 未配 credential.helper） | 配置 `CAB_CODEARTSREPO_TOKEN`（§2.4）后重试；或改用 SSH |
+| `repo_push` 返回 `PROXY_AUTH`（`CONNECT tunnel failed ... 407`） | 代理需 NTLM 认证，`git -c http.proxy` 不支持 | 转宿主命令（pwsh/bash，系统代理自动处理 NTLM）推送；命令由 `next_actions` 给出 |
 
 ---
 
@@ -124,6 +155,7 @@ Authorization: SDK-HMAC-SHA256 Access=<AK>, SignedHeaders=content-type;host;x-sd
 | `CAB_REGION` | 视凭据源 | 区域，如 `cn-north-4`（默认 `cn-north-4`） |
 | `CODEARTS_BUILD_PROJECT_ID` | 推荐 | 默认项目 ID（create_job 等需 project_id 的调用） |
 | `CODEARTS_CONSOLE_BASE_URL` | ❌ | 控制台基础地址，用于拼装产物页面查询链接 |
+| `CAB_CODEARTSREPO_TOKEN` | 推码时 | CodeArtsRepo 访问令牌（见 §2.4；与 AK/SK 无关） |
 
 ---
 

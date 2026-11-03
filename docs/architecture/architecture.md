@@ -111,7 +111,7 @@ Huawei Cloud **CodeArts Build（编译构建）** 是云上编译构建平台，
 
 | 类别 | 需求 | 指标 |
 |------|------|------|
-| 安全 | 凭据不外泄 | AK/SK 经凭据注入抽象提供（env / hcloud config），插件业务代码不接触明文，仅进程内签名；不出现在工具结果中 |
+| 安全 | 凭据不外泄 | AK/SK 经凭据注入抽象提供（env / file），插件业务代码不接触明文，仅进程内签名；不出现在工具结果中 |
 | 安全 | Token 管理 | AK/SK 签名无 token 依赖（不调 IAM），无获取/刷新负担 |
 | 可靠 | 网络失败重试 | 幂等命令支持重试，限 3 次 |
 | 性能 | 列表接口分页 | 默认 20 条/页，上限 100 |
@@ -188,7 +188,7 @@ flowchart TB
 | 工具 schema | `@deepseek-ai/schemastery` | dsh 标准 schema 库（z），与 defineTool 原生兼容 |
 | 参数校验 | `@deepseek-ai/schemastery` | 与 dsh 工具注册一体化，避免 Zod 双轨 |
 | **华为云调用承载** | **自建 HTTP 客户端**（`fetch` + `AKSKSigner` 签名，基于 api-contract.md 接口契约自行构造请求/解析响应） | 见下"华为云调用承载方案对比"——架构评审决策（2026-09-20）：**SDK 业务客户端不可信**，改为自建 HTTP；仅保留 `@huaweicloud/huaweicloud-sdk-core` 签名库 |
-| 凭据注入 | 凭据提供者接口（`CredentialProvider`） | 从 hcloud config / 环境变量 / 宿主注入读取 AK/SK，**进程内签名、不落盘明文**——保留"插件不接触凭据明文"承诺 |
+| 凭据注入 | 凭据提供者接口（`CredentialProvider`） | 从环境变量 / `.dsh-codearts` 文件读取 AK/SK，**进程内签名、不落盘明文**——保留"插件不接触凭据明文"承诺（`hcloud config` 源已于 2026-09-30 移除，见 FE-06） |
 | ShowNewOutput 例外 | 手动 HTTP（仅 `list_artifacts`） | 该端点服务端接口本身限制（SDK 与 KooCLI 均未封装）；自建 HTTP 承载后与普通工具同构，仅差一个未进白名单的 URL |
 
 #### 3.3.1 华为云调用承载方案对比（架构评审决策 2026-09-20）
@@ -236,7 +236,7 @@ dsh-codeartsbuild/                      # dsh 插件（bundle），唯一终端�
 │   │   └── index.ts                    # Provider 注册表（工厂）
 │   ├── infra/                          # 基础设施层（跨 Provider 复用）
 │   │   ├── http-client.ts              # 自建 HTTP 客户端封装（AK/SK 签名 + 错误映射 + 重试）
-│   │   ├── credential-provider.ts      # 凭据注入抽象（hcloud config / 环境变量）
+│   │   ├── credential-provider.ts      # 凭据注入抽象（环境变量 / .dsh-codearts 文件）
 │   │   ├── tool-result.ts              # 工具结果工具函数（makeErrorResult/makeSuccessResult）
 │   │   └── log-cleaner.ts              # 日志清洗器（详情见 FE-02-日志清洗器规范-20260918.md）
 │   └── index.ts                        # 模块出口（聚合导出）
@@ -464,7 +464,7 @@ interface LogError {
 
 ## 5. 工具契约
 
-> 工具契约（18 个原子工具入参/出参/URL/错误码/状态枚举）是**唯一事实来源**，完整定义见 `docs/api/api-contract.md`（各工具详情见 `docs/api/tools/*.md`）。本架构不再冗余摘录。
+> 工具契约（19 个原子工具入参/出参/URL/错误码/状态枚举）是**唯一事实来源**，完整定义见 `docs/api/api-contract.md`（各工具详情见 `docs/api/tools/*.md`）。本架构不再冗余摘录。
 
 ---
 
@@ -612,18 +612,21 @@ flowchart TD
 
 ## 8. 配置与部署
 
-### 8.1 KooCLI 前置依赖
+### 8.1 凭据前置依赖
 
-**所有华为云 OpenAPI 调用经自建 HTTP 客户端承载**（`fetch` + `AKSKSigner` AK/SK 签名），插件本身不实现 IAM Token 获取（AK/SK 签名无 token 依赖）。凭据来源二选一：
+**所有华为云 OpenAPI 调用经自建 HTTP 客户端承载**（`fetch` + `AKSKSigner` AK/SK 签名），插件本身不实现 IAM Token 获取（AK/SK 签名无 token 依赖）。无需安装 KooCLI/SDK。凭据来源二选一：
 
 ```bash
-# 方案 1：hcloud config 兼容（已有 hcloud configure 用户可直接使用）
-hcloud configure set --cli-access-key=AK --cli-secret-key=SK --cli-region=cn-north-4
-
-# 方案 2：环境变量（CI/容器友好）
+# 方案 1：环境变量（CI/容器友好）
 export CAB_AK=<AK>
 export CAB_SK=<SK>
 export CAB_REGION=cn-north-4
+
+# 方案 2：工作目录 .dsh-codearts 文件（按项目隔离）
+# CAB_AK=<AK>
+# CAB_SK=<SK>
+# CAB_REGION=cn-north-4
+# CAB_CODEARTSREPO_TOKEN=<TOKEN>   # 仅推码时需要
 ```
 
 > 插件首次调用时按 `credentialSource` 读取 AK/SK，进程内签名（`AKSKSigner`），不落盘、不入日志。
@@ -637,8 +640,11 @@ export CAB_REGION=cn-north-4
 | `CAB_REGION` | 视凭据源 | 区域，如 `cn-north-4`（默认 `cn-north-4`） |
 | `CODEARTS_BUILD_PROJECT_ID` | 推荐 | 默认项目 ID，用于 `create_job` 等需要 project_id 的调用 |
 | `CODEARTS_CONSOLE_BASE_URL` | ❌ | 控制台基础地址，用于拼装产物页面查询链接 |
+| `CAB_CODEARTSREPO_TOKEN` | 推码时 | CodeArtsRepo HTTPS 访问令牌（`repo_push`/`get_push_credential` 使用，FE-15）。**与 AK/SK 无关**——AK/SK 仅用于云侧 API 签名，不得作为 git push 凭据 |
 
 > 凭据源由 cordis.yml config `credentialSource` 选择（`env` / `file`，缺省自动探测：有 CAB_AK → env；cwd 有 `.dsh-codearts` → file；否则报 E_CONFIG）。
+>
+> `CAB_CODEARTSREPO_TOKEN` 来源链：显式入参 > 环境变量 > `.dsh-codearts` 文件同名键（`loadFileEnv` 合入 env，已有环境变量优先）。
 
 ### 8.3 dsh 插件安装
 
@@ -666,7 +672,7 @@ dsh web
 
 | 项 | 设计 |
 |----|------|
-| 凭据存储 | **凭据经凭据注入抽象**（`CredentialProvider` 接口）提供 AK/SK；插件**不接触明文 AK/SK**，仅传入 `AKSKSigner` 签名，凭据源可为 hcloud config / 环境变量 |
+| 凭据存储 | **凭据经凭据注入抽象**（`CredentialProvider` 接口）提供 AK/SK；插件**不接触明文 AK/SK**，仅传入 `AKSKSigner` 签名，凭据源可为环境变量 / `.dsh-codearts` 文件 |
 | 凭据生命周期 | AK/SK 在进程内签名使用，**不落盘、不入日志、不入工具结果**；会话结束随进程退出释放 |
 | 最小权限 | 建议使用仅含 CodeArtsBuild 操作权限的子账号 AK/SK |
 | 敏感字段 | 工具结果序列化时剔除敏感字段；不打印 HTTP 请求/响应中的凭据信息（签名头为摘要，非明文） |
@@ -687,7 +693,7 @@ dsh web
 | 层 | 测试点 | 方式 |
 |----|--------|------|
 | 单元 | `infra/http-client.ts` 签名头构造/错误映射/重试 | Vitest + mock fetch（或注入 dispatcher） |
-| 单元 | `infra/credential-provider.ts` 凭据源读取 | Vitest + mock hcloud config / env |
+| 单元 | `infra/credential-provider.ts` 凭据源读取 | Vitest + mock env / `.dsh-codearts` 文件 |
 | 单元 | `infra/local-build/` artifact 产物收集、archive 留档 | fixture 目录 |
 | 单元 | `infra/log-cleaner.ts` 清洗分类/截断 | 日志样本 fixture |
 | 单元 | `tools/` schema 校验 | Vitest |

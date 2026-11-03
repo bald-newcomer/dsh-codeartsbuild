@@ -34,8 +34,8 @@
 
 | 错误码 | 含义 | 典型触发 | 建议处理 |
 |--------|------|----------|----------|
-| `E_CONFIG` | 配置缺失/非法 | 凭据未配置（env 缺 CAB_AK/SK 或 hcloud config 不可读）、region 无 endpoint | 配置凭据（见 auth.md §2） |
-| `E_AUTH` | 认证失败 | AK/SK 失效（401）、无权限（403） | 检查 AK/SK 与权限；hcloud config 密文时改用环境变量 |
+| `E_CONFIG` | 配置缺失/非法 | 凭据未配置（env 缺 CAB_AK/SK 且无 `.dsh-codearts`）、region 无 endpoint | 配置凭据（见 auth.md §2） |
+| `E_AUTH` | 认证失败 | AK/SK 失效（401）、无权限（403） | 检查 AK/SK 与权限（auth.md §4） |
 | `E_PARAM` | 参数校验失败 | 必填缺失、类型错误、module_id 非白名单 | 按字段级错误列表修正 |
 | `E_API` | CodeArtsBuild 业务错误 | 任务不存在、重名、无权限 | 透传 HTTP 响应 error_code/error_msg |
 | `E_NETWORK` | 网络异常 | 超时、连接失败、代理不通 | 幂等请求重试 ≤3 次后报错；检查代理 |
@@ -91,10 +91,15 @@
 
 | 现象 | 原因 | 排查 |
 |------|------|------|
-| 凭据未配置 `E_CONFIG` | env 缺 CAB_AK/SK 或 hcloud config 不可读 | auth.md §2 配置凭据 |
-| 认证失败 401 | AK/SK 错误/失效，或 hcloud config 密文存储 | 改用环境变量 `CAB_AK`/`CAB_SK`（auth.md §4） |
+| 凭据未配置 `E_CONFIG` | env 缺 CAB_AK/SK 且工作目录无 `.dsh-codearts` | auth.md §2 配置凭据 |
+| 认证失败 401 | AK/SK 错误/失效 | 核对 `CAB_AK`/`CAB_SK`（auth.md §4） |
 | 无权限调用 403 | 子账号权限不足 | IAM 授权 CodeArtsBuild 操作权限 |
 | 网络不通 `E_NETWORK` | 内网无法直连华为云 | 配置代理（`HTTPS_PROXY` 或 config proxyUrl）；Windows 需 `NODE_TLS_REJECT_UNAUTHORIZED=0` |
+| git push `CH.00905401 Access denied` | 用了 AK/SK、裸 token 或 `oauth2:` 拼 URL | 改用 `repo_push` 的 `accessToken`，或先调 `get_push_credential` 取 `private-token` 认证 URL（auth.md §2.4，FE-15） |
+| `repo_push` → `missing_credentials` | 无 accessToken 且本地无凭据通道 | 配置 `CAB_CODEARTSREPO_TOKEN` 后重试（auth.md §2.4）；或改用 SSH |
+| `repo_push` → `not_git_repo` | 本地目录不是 git 仓库 | `git init` 后重试（FE-13） |
+| `repo_push` → `PROXY_AUTH`（407） | 代理需 NTLM 认证，`git -c http.proxy` 不通 | 转宿主命令（pwsh/bash）推送，命令见 `next_actions` |
+| `repo_push` → `project_mismatch` | origin 远端项目 ≠ 会话 projectId | 按 `next_actions` 执行 `git remote set-url origin <remoteUrl>` 或切换项目 |
 
 ### 5.2 构建类
 

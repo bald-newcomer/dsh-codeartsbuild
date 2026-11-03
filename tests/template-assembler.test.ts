@@ -7,8 +7,10 @@ import {
   assembleSteps,
   assembleConfig,
   resolveStep,
+  suggestTemplateRefs,
   validateSteps,
   selectTemplates,
+  selectTemplatesWithMatch,
   listAvailableTemplates,
   listAvailableLanguages,
   listWhitelistModuleIds,
@@ -131,6 +133,32 @@ describe('Layer 1: 组装器单测', () => {
         expect((e as ToolException).details).toContain('npm-build');
         expect((e as ToolException).details).toContain('module_id');
       }
+    });
+
+    it('FE-15: pip-install 未匹配 → 推荐 shell-command/pyinstaller-build', () => {
+      try {
+        resolveStep('pip-install');
+        expect.fail('应抛异常');
+      } catch (e) {
+        expect(e).toBeInstanceOf(ToolException);
+        expect((e as ToolException).code).toBe('E_PARAM');
+        // message 含模糊推荐（stepsPlan 场景模型直接看 message）
+        expect((e as ToolException).message).toContain('推荐 template_id: shell-command, pyinstaller-build');
+      }
+    });
+
+    it('FE-15: code-checkout 未匹配 → 提示无需 checkout 步骤（建仓推码已完成）', () => {
+      try {
+        resolveStep('code-checkout');
+        expect.fail('应抛异常');
+      } catch (e) {
+        expect(e).toBeInstanceOf(ToolException);
+        expect((e as ToolException).message).toContain('无需 checkout 步骤');
+      }
+    });
+
+    it('FE-15: suggestTemplateRefs 对未知步骤返回 null', () => {
+      expect(suggestTemplateRefs('rust-build')).toBeNull();
     });
   });
 
@@ -402,6 +430,256 @@ describe('Layer 1: 组装器单测', () => {
     it('合法字面量 nodejs20 → 放行（字面量照抄，不补全）', () => {
       const steps = assembleSteps({ stepsPlan: [{ step: 'npm-build', properties: { image: 'nodejs20' } }] });
       expect(steps[0].properties.image).toBe('nodejs20');
+    });
+  });
+
+  // ─── FE-16 §2.1：step 字段契约机制化（properties 键名校验，2026-11-03 会话 e3c9f738）───
+  describe('FE-16: step properties 键名校验（validateStepProperties）', () => {
+    it('shell-command 模板传 command → 放行（合法字段名）', () => {
+      const steps: Parameters<typeof validateSteps>[0] = [
+        {
+          module_id: 'devcloud2018.codeci_action_20017.action',
+          name: '构建',
+          properties: { command: 'uv build', preCondition: 'SUCCESS' },
+          enable: true,
+        },
+      ];
+      expect(() => validateSteps(steps)).not.toThrow();
+    });
+
+    it('shell-command 模板传 shellContent（非数组层字段名）→ E_PARAM + 推荐 command', () => {
+      // 会话 e3c9f738 实测：模型在 steps[].properties 中用 shellContent（stepsPlan 语法层的字段名）
+      // 服务端静默吞掉 → 回读发现命令是默认 echo 'hello'。FE-16 §2.1 机制化拦截。
+      try {
+        validateSteps([
+          {
+            module_id: 'devcloud2018.codeci_action_20017.action',
+            name: '构建',
+            properties: { shellContent: 'uv build', preCondition: 'SUCCESS' },
+            enable: true,
+          },
+        ]);
+        expect.fail('应抛 E_PARAM');
+      } catch (e) {
+        expect((e as ToolException).code).toBe('E_PARAM');
+        const details = (e as ToolException).details as string;
+        // 错误信息含模板可用字段 + 推荐 command
+        expect(details).toContain('shellContent');
+        expect(details).toContain('shell-command');
+        expect(details).toContain('command');
+        // 软提示：区分两层语法
+        expect(details).toContain('stepsPlan');
+        expect(details).toContain('数组层');
+      }
+    });
+
+    it('shell-command 模板传 comand（拼写错误）→ E_PARAM + 编辑距离推荐 command', () => {
+      try {
+        validateSteps([
+          {
+            module_id: 'devcloud2018.codeci_action_20017.action',
+            name: '构建',
+            properties: { comand: 'uv build' },
+            enable: true,
+          },
+        ]);
+        expect.fail('应抛 E_PARAM');
+      } catch (e) {
+        expect((e as ToolException).code).toBe('E_PARAM');
+        const details = (e as ToolException).details as string;
+        // 编辑距离 ≤ 2 → 推荐 command
+        expect(details).toContain('command');
+      }
+    });
+
+    it('shell-command 模板传大小写不敏感 Command → E_PARAM + 推荐 command（保守拦截）', () => {
+      // 大小写不敏感匹配仅用于推荐正确字段名，不用于放行——服务端字段名大小写敏感性未知，保守拦截
+      try {
+        validateSteps([
+          {
+            module_id: 'devcloud2018.codeci_action_20017.action',
+            name: '构建',
+            properties: { Command: 'uv build' },
+            enable: true,
+          },
+        ]);
+        expect.fail('应抛 E_PARAM（大小写不敏感匹配仅用于推荐，不放行）');
+      } catch (e) {
+        expect((e as ToolException).code).toBe('E_PARAM');
+        const details = (e as ToolException).details as string;
+        // 大小写不敏感完全匹配 → 推荐 command
+        expect(details).toContain('command');
+      }
+    });
+
+    it('shell-command 模板传完全无关字段 xyz → E_PARAM 列出可用字段（无推荐）', () => {
+      try {
+        validateSteps([
+          {
+            module_id: 'devcloud2018.codeci_action_20017.action',
+            name: '构建',
+            properties: { xyz: 'value' },
+            enable: true,
+          },
+        ]);
+        expect.fail('应抛 E_PARAM');
+      } catch (e) {
+        expect((e as ToolException).code).toBe('E_PARAM');
+        const details = (e as ToolException).details as string;
+        expect(details).toContain('xyz');
+        expect(details).toContain('command');
+        expect(details).toContain('preCondition');
+      }
+    });
+
+    it('maven-build 模板传 pomMode → 放行（maven 模板合法字段）', () => {
+      // 验证非 shell-command 模板的字段校验也生效
+      expect(() =>
+        validateSteps([
+          {
+            module_id: 'devcloud2018.codeci_action_20043.action',
+            name: 'Maven构建',
+            properties: { command: 'mvn clean package', pomMode: 'parent' },
+            enable: true,
+          },
+        ]),
+      ).not.toThrow();
+    });
+
+    it('maven-build 模板传 shellContent（跨模板字段名混淆）→ E_PARAM', () => {
+      try {
+        validateSteps([
+          {
+            module_id: 'devcloud2018.codeci_action_20043.action',
+            name: 'Maven构建',
+            properties: { shellContent: 'mvn clean package' },
+            enable: true,
+          },
+        ]);
+        expect.fail('应抛 E_PARAM');
+      } catch (e) {
+        expect((e as ToolException).code).toBe('E_PARAM');
+        const details = (e as ToolException).details as string;
+        // shellContent 包含 command → 推荐 command（maven-build 模板的合法字段）
+        expect(details).toContain('shellContent');
+        expect(details).toContain('command');
+      }
+    });
+
+    it('steps 多步混合：第 2 步字段错误 → E_PARAM 指明 steps[1]', () => {
+      try {
+        validateSteps([
+          {
+            module_id: 'devcloud2018.codeci_action_20017.action',
+            name: '安装依赖',
+            properties: { command: 'pip install uv' },
+            enable: true,
+          },
+          {
+            module_id: 'devcloud2018.codeci_action_20017.action',
+            name: '构建',
+            properties: { shellContent: 'uv build' }, // 第 2 步字段错误
+            enable: true,
+          },
+        ]);
+        expect.fail('应抛 E_PARAM');
+      } catch (e) {
+        expect((e as ToolException).code).toBe('E_PARAM');
+        const msg = (e as ToolException).message;
+        expect(msg).toContain('steps[1]');
+      }
+    });
+
+    it('assembleConfig 集成：steps[].properties.shellContent → E_PARAM（端到端拦截）', () => {
+      // 验证 assembleConfig 内部调用 validateSteps 时也会拦截字段错误
+      try {
+        assembleConfig({
+          projectId: 'p1',
+          jobName: 'job1',
+          arch: 'x86-64',
+          steps: [
+            {
+              module_id: 'devcloud2018.codeci_action_20017.action',
+              name: '构建',
+              properties: { shellContent: 'uv build', image: 'shell4.2.46-git1.8.3-zip6.00' },
+              enable: true,
+            },
+          ],
+        });
+        expect.fail('应抛 E_PARAM');
+      } catch (e) {
+        expect((e as ToolException).code).toBe('E_PARAM');
+        const details = (e as ToolException).details as string;
+        expect(details).toContain('shellContent');
+        expect(details).toContain('command');
+      }
+    });
+  });
+
+  // ─── FE-16 §2.4：language 速选模糊匹配（2026-11-03 会话 e3c9f738）───
+  describe('FE-16: language 速选模糊匹配（selectTemplatesWithMatch）', () => {
+    it('完全匹配 Python/PyInstaller → matchedBy:exact', () => {
+      const r = selectTemplatesWithMatch('Python/PyInstaller');
+      expect(r.matchedBy).toBe('exact');
+      expect(r.matchedLanguage).toBe('Python/PyInstaller');
+      expect(r.refs).toEqual(['pyinstaller-build', 'upload-release']);
+    });
+
+    it('前缀匹配 Python/uv → 命中 Python/其他（setuptools 等），matchedBy:prefix', () => {
+      // 会话 e3c9f738 实测：模型传 Python/uv（不在枚举）→ 直接 E_PARAM 拒绝
+      // FE-16 §2.4：前缀匹配 Python/ → 命中同前缀下的 Python/其他（setuptools 等）
+      const r = selectTemplatesWithMatch('Python/uv');
+      expect(r.matchedBy).toBe('prefix');
+      expect(r.matchedLanguage).toBe('Python/其他（setuptools 等）');
+      expect(r.refs).toEqual(['shell-command', 'upload-release']);
+    });
+
+    it('前缀匹配 Java/uv → 命中 Java/Maven（jar）（同前缀第一个）', () => {
+      const r = selectTemplatesWithMatch('Java/uv');
+      expect(r.matchedBy).toBe('prefix');
+      expect(r.matchedLanguage).toBe('Java/Maven（jar）');
+    });
+
+    it('包含匹配：入参 Python（无 /，枚举键包含 Python）→ 命中含 Python 的第一个枚举键', () => {
+      // contains 第二策略：枚举键包含入参——Python/PyInstaller.includes('Python') → true
+      const r = selectTemplatesWithMatch('Python');
+      expect(r.matchedBy).toBe('contains');
+      expect(r.matchedLanguage).toContain('Python');
+    });
+
+    it('无前缀也无包含：Rust → matchedBy:none，抛 E_PARAM', () => {
+      try {
+        selectTemplatesWithMatch('Rust');
+        expect.fail('应抛 E_PARAM');
+      } catch (e) {
+        expect((e as ToolException).code).toBe('E_PARAM');
+        const details = (e as ToolException).details as string;
+        expect(details).toContain('可用 language');
+        expect(details).toContain('stepsPlan'); // 引导改用 stepsPlan
+      }
+    });
+
+    it('selectTemplates（旧 API）Python/uv → 返回 shell-command/upload-release（模糊匹配透传）', () => {
+      // selectTemplates 旧 API 仍可用，内部走模糊匹配
+      const refs = selectTemplates('Python/uv');
+      expect(refs).toEqual(['shell-command', 'upload-release']);
+    });
+
+    it('selectTemplates Rust → E_PARAM（无匹配）', () => {
+      try {
+        selectTemplates('Rust');
+        expect.fail('应抛 E_PARAM');
+      } catch (e) {
+        expect((e as ToolException).code).toBe('E_PARAM');
+      }
+    });
+
+    it('assembleSteps language=Python/uv → 模糊匹配展开为 shell-command + upload-release', () => {
+      // 端到端：assembleSteps 内部调 selectTemplates，模糊匹配后展开为 2 步
+      const steps = assembleSteps({ language: 'Python/uv' });
+      expect(steps.length).toBe(2);
+      expect(steps[0].module_id).toBe('devcloud2018.codeci_action_20017.action'); // shell-command
+      expect(steps[1].module_id).toBe('devcloud2018.codeci_action_20018.action'); // upload-release
     });
   });
 });

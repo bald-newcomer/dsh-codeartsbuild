@@ -22,6 +22,7 @@ import { waitBuildHandler, type WaitBuildHandlerInput } from '../providers/codea
 import { getLogHandler, type GetLogHandlerInput } from '../providers/codeartsbuild/get-log.js';
 import { repoPrepareHandler, type RepoPrepareHandlerInput } from '../providers/codeartsbuild/repo-prepare.js';
 import { repoPushHandler, type RepoPushHandlerInput } from '../providers/codeartsbuild/repo-push.js';
+import { getPushCredentialHandler, type GetPushCredentialHandlerInput } from '../providers/codeartsbuild/get-push-credential.js';
 import { repoBuildHandler, type RepoBuildHandlerInput } from '../providers/local-build/index.js';
 import { toDshTool, type InternalToolDef } from './dsh-adapter.js';
 import { TOOL_PARAMETERS } from './parameters.js';
@@ -32,7 +33,7 @@ function cloudTool<TInput>(name: string, description: string, handler: InternalT
   return { name, description, parameters: TOOL_PARAMETERS[name] ?? {}, handler };
 }
 
-/** 全部工具定义（18 个原子工具，dsh 契约） */
+/** 全部工具定义（19 个原子工具，dsh 契约） */
 export function buildTools(): ToolDefinition[] {
   // 不同工具的输入类型各异，统一为宽松 InternalToolDef（dsh execute 参数为未知 JSON）
   const defs: InternalToolDef<any>[] = [
@@ -54,9 +55,16 @@ export function buildTools(): ToolDefinition[] {
     cloudTool<RepoPrepareHandlerInput>('codeartsbuild_repo_prepare', '本地 git 仓库准备 CodeArtsRepo 仓库（检测远端→建仓+回读 RepoInfo，返回 remote_url + 推送指引；实际 push 由 repo_push 接手）', repoPrepareHandler),
     {
       name: 'codeartsbuild_repo_push',
-      description: '本地仓库推送代码到 CodeArtsRepo（内置一次智能尝试：代理+SSL 自动携带、origin 项目归属预检、失败分类输出 next_actions）',
+      description: '本地仓库推送代码到 CodeArtsRepo（内置一次智能尝试：代理+SSL 自动携带、origin 项目归属预检、凭据机制化注入 private-token、失败分类输出 next_actions）',
       parameters: TOOL_PARAMETERS.codeartsbuild_repo_push ?? {},
       handler: repoPushHandler as InternalToolDef<RepoPushHandlerInput>['handler'],
+      local: true,
+    },
+    {
+      name: 'codeartsbuild_get_push_credential',
+      description: '获取 push 凭据（token + authedUrl + 可执行命令示例）——pwsh/git push 前调用，避免自行拼 URL（FE-15 §2.1）',
+      parameters: TOOL_PARAMETERS.codeartsbuild_get_push_credential ?? {},
+      handler: getPushCredentialHandler as InternalToolDef<GetPushCredentialHandlerInput>['handler'],
       local: true,
     },
     {

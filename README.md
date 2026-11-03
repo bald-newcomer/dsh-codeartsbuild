@@ -1,6 +1,6 @@
 # 🏗️ CodeArtsBuild — 一切皆插件的构建生命周期管理（dsh 插件）
 
-> **AI-native & dsh-native 的华为云 CodeArts Build 构建工具包** — 18 个原子工具 · 6 大场景
+> **AI-native & dsh-native 的华为云 CodeArts Build 构建工具包** — 19 个原子工具 · 6 大场景
 > （本地构建 / 项目感知 / 任务编排 / 执行控制 / 状态监控 / 产物与日志）· 一条完整的
 > `本地验证 → 云端构建 → 失败诊断` 闭环。**契约即实现，实测即事实。**
 
@@ -85,12 +85,18 @@ export CAB_AK=<AK>
 export CAB_SK=<SK>
 export CAB_REGION=cn-north-4
 
-# 方式二：hcloud config 兼容（已有 hcloud configure 用户）
-hcloud configure set --cli-access-key=<AK> --cli-secret-key=<SK> --cli-region=cn-north-4
+# 方式二：工作目录 .dsh-codearts 文件（按项目隔离，key=value 行格式，需自行创建）
+#   CAB_AK=<AK>
+#   CAB_SK=<SK>
+#   CAB_REGION=cn-north-4
+
+# 推送代码时另需 CodeArtsRepo 访问令牌（与 AK/SK 无关）
+export CAB_CODEARTSREPO_TOKEN=<TOKEN>
 ```
 
 插件**不接触 AK/SK 明文**：凭据经 `CredentialProvider` 抽象注入，进程内签名、不落盘、
-不入日志（详见 `docs/operations/auth.md`）。
+不入日志（详见 `docs/operations/auth.md`）。**AK/SK 不能用于 git push**——推码走
+`CAB_CODEARTSREPO_TOKEN`，由 `repo_push` / `get_push_credential` 注入 `private-token` 认证 URL。
 
 ## 🎬 三分钟跑通完整构建闭环
 
@@ -111,13 +117,14 @@ wait_build(FAILED) → get_record（取 record_id）→ get_log（拉取+ZIP 解
 
 指定分支构建 / 查询历史 / 停止构建等日常操作，均一句话触发（见 SKILL 建议操作路径）。
 
-## 🛠️ 工具清单（18 个）
+## 🛠️ 工具清单（19 个）
 
 | 场景 | 工具 | 说明 |
 |------|------|------|
 | **本地构建** | `codeartsbuild_repo_build` | 本地构建（探测/指导/执行/产物/留档内置，模型自决） |
 | | `codeartsbuild_repo_prepare` | 本地仓库准备 CodeArtsRepo（建仓+回读 RepoInfo） |
-| | `codeartsbuild_repo_push` | 推送本地仓库代码到 CodeArtsRepo（一次智能尝试+失败分类） |
+| | `codeartsbuild_repo_push` | 推送本地仓库代码到 CodeArtsRepo（一次智能尝试+失败分类+private-token 凭据注入） |
+| | `codeartsbuild_get_push_credential` | 获取推送凭据（authedUrl + 可执行命令），repo_push 失败转宿主命令时调用 |
 | **项目感知** | `codeartsbuild_list_projects` | 项目列表（v1 `ShowRelatedProject`） |
 | | `codeartsbuild_list_jobs` | 任务列表（全局搜索） |
 | | `codeartsbuild_get_job` | 任务详情（v1 `ShowJobConfig`） |

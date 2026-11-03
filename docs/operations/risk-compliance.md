@@ -20,11 +20,12 @@
 
 | 项 | 设计 | 状态 |
 |----|------|------|
-| 凭据存储 | AK/SK 经凭据注入抽象提供（`CredentialProvider`：env / hcloud config），插件业务代码不接触明文，仅传入签名器 | ✅ |
+| 凭据存储 | AK/SK 经凭据注入抽象提供（`CredentialProvider`：env / `.dsh-codearts` 文件），插件业务代码不接触明文，仅传入签名器 | ✅ |
 | 敏感字段 | 工具结果序列化剔除 AK/SK；签名头为摘要非明文；HTTP 错误详情不含凭据 | ✅ |
 | 注入防护 | HTTP 请求体由强类型对象构造后 JSON 序列化，无 shell 字符串拼接 | ✅ |
 | 日志脱敏 | log-cleaner 输出脱敏（AK/SK/Token/密码/`docker login -u -p`） | ✅ |
-| 删除保护 | `delete_job` 描述明示不可逆，调用前须用户确认 | ✅ |
+| 删除保护 | `delete_job` 缺省返回 `need_confirmation`，须用户确认后携 `confirm=true` 才执行（FE-15 机制化） | ✅ |
+| 推码凭据隔离 | `CAB_CODEARTSREPO_TOKEN` 与 AK/SK 分离：仅用于 git push，经 `private-token` 认证 URL 进程级注入（`git -c remote.origin.url`），不写 `.git/config`、不进输出 | ✅ |
 | 大日志管控 | `get_log` 仅 error 分析时获取，按需截断 | ✅ |
 
 ---
@@ -58,9 +59,9 @@
 
 ### 3.2 凭据配置保护
 
-- 凭据来源（环境变量 / `~/.hcloud/config.json`）建议仅当前用户可读写，勿提交到代码仓库
-- 定期轮换 AK/SK，轮换后更新环境变量或 `hcloud configure set`
-- hcloud config 若为加密存储（AK/SK 密文，无法直接签名），改用环境变量 `CAB_AK`/`CAB_SK`
+- 凭据来源（环境变量 / 工作目录 `.dsh-codearts` 文件）建议仅当前用户可读写，勿提交到代码仓库（`.dsh-codearts` 已默认加入 `.gitignore`）
+- 定期轮换 AK/SK 与访问令牌，轮换后更新环境变量或 `.dsh-codearts`
+- `CAB_CODEARTSREPO_TOKEN` 与 AK/SK 分属不同凭据域：前者仅用于 git push（CodeArtsRepo 访问令牌），后者仅用于云侧 API 签名
 
 ---
 

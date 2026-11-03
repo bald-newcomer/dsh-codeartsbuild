@@ -186,14 +186,87 @@ describe('updateJobHandler', () => {
     });
     expect(result.isError).toBe(true);
   });
+
+  // FE-13 §2.1 P0：projectId 兜底链（body 显式 > 会话 > 配置 > get_job 回读 > E_PARAM）
+  it('FE-13: body 无 projectId + 会话有值 → 用会话值，不触发 get_job 回读', async () => {
+    const client = makeClient(() => ({ result: { job_id: 'job-1' } }));
+    const session = { projectId: 'a1b2c3d4e5f60718293a4b5c6d7e8f90' };
+    const result = await updateJobHandler(makeCtx(client, session) as never, {
+      jobId: 'job-1',
+      body: {
+        jobName: '任务A',
+        arch: 'x86-64',
+        steps: [{ module_id: 'devcloud2018.codeci_action_20043.action', name: 'Maven构建' }],
+      },
+    });
+
+    expect(result.isError).toBe(false);
+    const calls = client.call.mock.calls as Array<[{ path: string; body?: Record<string, unknown> }]>;
+    // 只发生一次调用（/v1/job/update），未触发 get_job 回读
+    expect(calls).toHaveLength(1);
+    const [req] = calls[0];
+    expect(req.path).toBe('/v1/job/update');
+    expect((req.body as Record<string, unknown>).project_id).toBe('a1b2c3d4e5f60718293a4b5c6d7e8f90');
+  });
+
+  it('FE-13: body 无 projectId + 会话/配置无值 → get_job 回读兜底成功并刷新会话', async () => {
+    let callCount = 0;
+    const client = makeClient((req: { path: string }) => {
+      callCount++;
+      if (req.path === '/v1/job/job-1/config') {
+        return { result: { project_id: 'fa11b2c3d4e5f60718293a4b5c6d7e8f90' } };
+      }
+      return { result: { job_id: 'job-1' } };
+    });
+    const session: { projectId?: string } = {};
+    const result = await updateJobHandler(makeCtx(client, session) as never, {
+      jobId: 'job-1',
+      body: {
+        jobName: '任务A',
+        arch: 'x86-64',
+        steps: [{ module_id: 'devcloud2018.codeci_action_20043.action', name: 'Maven构建' }],
+      },
+    });
+
+    expect(result.isError).toBe(false);
+    expect((result.data as { updated: boolean }).updated).toBe(true);
+    expect(callCount).toBe(2); // 回读 + update
+    const calls = client.call.mock.calls as Array<[{ path: string; body?: Record<string, unknown> }]>;
+    const updateCall = calls.find(([req]) => req.path === '/v1/job/update');
+    const updateReq = (updateCall as [{ path: string; body?: Record<string, unknown> }])[0];
+    expect(updateReq.body.project_id).toBe('fa11b2c3d4e5f60718293a4b5c6d7e8f90');
+    expect(session.projectId).toBe('fa11b2c3d4e5f60718293a4b5c6d7e8f90'); // 回读成功刷新会话
+  });
+
+  it('FE-13: body 无 projectId + 会话/配置无值 + get_job 回读也失败 → E_PARAM 引导先 get_job', async () => {
+    const client = makeClient((req: { path: string }) => {
+      if (req.path === '/v1/job/job-1/config') {
+        return { result: {} }; // 回读响应无 project_id
+      }
+      return { result: { job_id: 'job-1' } };
+    });
+    const result = await updateJobHandler(makeCtx(client) as never, {
+      jobId: 'job-1',
+      body: {
+        jobName: '任务A',
+        arch: 'x86-64',
+        steps: [{ module_id: 'devcloud2018.codeci_action_20043.action', name: 'Maven构建' }],
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('E_PARAM');
+    expect(result.content[0].text).toContain('projectId');
+    expect(result.content[0].text).toContain('get_job');
+  });
 });
 
 // ─── delete_job ───
 describe('deleteJobHandler', () => {
 
-  it('成功：DELETE 请求 + deleted:true + job_id 回填', async () => {
+  it('成功：confirm=true 时 DELETE 请求 + deleted:true + job_id 回填', async () => {
     const client = makeClient(() => ({ result: { job_id: 'job-1' } }));
-    const result = await deleteJobHandler(makeCtx(client) as never, { jobId: 'job-1' });
+    const result = await deleteJobHandler(makeCtx(client) as never, { jobId: 'job-1', confirm: true });
 
     expect((result.data as { deleted: boolean }).deleted).toBe(true);
     const [req] = client.call.mock.calls[0] as [{ method: string; path: string }];
@@ -201,9 +274,21 @@ describe('deleteJobHandler', () => {
     expect(req.path).toBe('/v1/job/job-1/delete');
   });
 
+  it('FE-15: confirm 缺省（false）→ need_confirmation，不执行删除', async () => {
+    const client = makeClient(() => ({ result: { job_id: 'job-1' } }));
+    const result = await deleteJobHandler(makeCtx(client) as never, { jobId: 'job-1' });
+
+    expect(result.isError).toBe(false);
+    const data = result.data as { deleted: boolean; reason: string };
+    expect(data.deleted).toBe(false);
+    expect(data.reason).toBe('need_confirmation');
+    // 未触发 HTTP 删除
+    expect(client.call).not.toHaveBeenCalled();
+  });
+
   it('响应缺 result.job_id 回填输入 jobId', async () => {
     const client = makeClient(() => ({ result: {} }));
-    const result = await deleteJobHandler(makeCtx(client) as never, { jobId: 'job-2' });
+    const result = await deleteJobHandler(makeCtx(client) as never, { jobId: 'job-2', confirm: true });
     expect((result.data as { job_id: string }).job_id).toBe('job-2');
   });
 

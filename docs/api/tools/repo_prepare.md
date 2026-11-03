@@ -63,8 +63,8 @@
 **推送链路契约**（push 由 `repo_push` 执行，2026-10-10）：
 
 - 远端地址取输出 `remote_url`（HTTPS）或 `ssh_url`（SSH），传给 `repo_push` 的 `remoteUrl` 入参。
-- `repo_push` 内置一次智能尝试：自动携带内网代理 + SSL 关闭；origin 项目归属预检；失败 stderr 分类（AUTH/SSL/NETWORK/REJECTED_FETCH_FIRST/RUNTIME_CRASH/UNKNOWN）输出 `next_actions`。
-- 仅 AUTH / RUNTIME_CRASH 等无法自动化解的失败，由模型/用户接管（配置访问令牌 / SSH 密钥 / 升级 git）。
+- `repo_push` 内置一次智能尝试：自动携带内网代理 + SSL 关闭；origin 项目归属预检；**凭据机制化（FE-15）**：`accessToken` 显式入参 > env `CAB_CODEARTSREPO_TOKEN` > `.dsh-codearts` 同名键，自动注入 `https://private-token:<TOKEN>@codehub...` 一次性 URL（不写盘/不进输出）；无令牌且本地无凭据 → `missing_credentials` 预检拦截；失败 stderr 分类（AUTH/SSL/NETWORK/PROXY_AUTH/REJECTED_FETCH_FIRST/RUNTIME_CRASH/UNKNOWN）输出 `next_actions`。
+- 仅 AUTH / RUNTIME_CRASH 等无法自动化解的失败，由模型/用户接管（配置访问令牌 / SSH 密钥 / 升级 git）；**转宿主命令推送前先调 `get_push_credential`（§2.19）取 authedUrl + 可执行命令**。
 - **凭据禁止用 AK/SK**（2026-10-10 实测 `CH.00905401 Access denied`）：`CAB_AK`/`CAB_SK` 仅云 API 签名，git push 认证只认访问令牌 / SSH 密钥。
 - 重试上限 3 轮（对齐强制规约 #6），无果升级用户。
 - **push 失败不阻断**：仓库已建 + RepoInfo 已返回，`create_job` 前置已完成；模型可继续用 RepoInfo 创建任务，同时附推送失败原因与处理建议。

@@ -21,6 +21,8 @@
 | jobId | string | ✅ | 构建任务 ID（原任务，请求体 `job_id`） |
 | body | object | ✅ | 与 create 同构的可修改配置片段（全量覆盖，非增量，含 arch/projectId/jobName/steps 等） |
 
+**projectId 兜底链（FE-13 §2.1，2026-10-16）**：`body.projectId 显式 > 会话上下文 > 配置默认值 > get_job 回读原任务配置 > E_PARAM`。模型组装 body 漏带 projectId 且会话/配置无值时，工具自动 `GET /v1/job/{jobId}/config` 回读 `project_id` 兜底（回读成功并刷新会话）；仅回读也失败（任务不存在/无 project_id 字段）才 E_PARAM 引导"先 get_job"。
+
 **输出示例**（openapi 实测响应）：
 
 ```json

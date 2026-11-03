@@ -5,6 +5,10 @@
 # inject: [tools] —— 声明依赖 dsh 宿主提供的 tools 服务（工具注册器）。
 # 2026-09-21 安装验证：cordis 沙箱要求 entry 显式声明所需服务（fiber.entry.options.inject
 # → Inject.resolve → fiber.inject），否则 apply 中 ctx.tools 报 "cannot get property tools without inject"。
+#
+# FE-14 本地构建子 agent：宿主 dsh-base bundle 已挂载 dsh-tool-subagent（提供 `subagent` 工具），
+# 本 patch 不重复挂载（重复挂载会报 DUPLICATE_PROVIDER）。subagent 调用方式见
+# skills/codeartsbuild/references/local-build-explorer.md（需传 run_in_background: false）。
 - insert:
     - id: codeartsbuild
       name: '@dsh-codearts/codeartsbuild'

@@ -89,11 +89,11 @@ dsh --profile headless --dump-config | grep codeartsbuild
 #         - id: codeartsbuild
 ```
 
-### 3.2 工具冒烟（18 个工具可见）
+### 3.2 工具冒烟（19 个工具可见）
 
 ```bash
 dsh --profile headless "列出你有哪些工具"
-# 预期：codeartsbuild_create_job / repo_build / repo_prepare / repo_push / list_projects 等 18 个全可见
+# 预期：codeartsbuild_create_job / repo_build / repo_prepare / repo_push / get_push_credential / list_projects 等 19 个全可见
 ```
 
 ### 3.3 真实云 API 调用验证（凭据生效）
@@ -110,6 +110,8 @@ dsh --profile headless "请调用 codeartsbuild_list_projects 工具列出你能
 ## 4. 踩坑与根因（本次实测发现）
 
 ### 4.1 凭据源未生效：Config 默认值阻断自动探测
+
+> **历史记录（2026-09-28 实测）**：`hcloud-config` 凭据源已于 2026-09-30 移除，现仅 `env` / `file` 两源。下述根因（`.default()` 注入阻断自动探测）仍适用于任何 `credentialSource` 默认值，保留作为踩坑参考。
 
 **现象**：`.dsh-codearts` 就位后，`list_projects` 仍报 `E_CONFIG: hcloud config AK/SK 为加密存储或不可读`（走了 hcloud-config 源）。
 

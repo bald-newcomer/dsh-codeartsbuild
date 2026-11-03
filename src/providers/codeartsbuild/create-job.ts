@@ -50,6 +50,14 @@ export interface CreateJobHandlerInput {
   autoUpdateSubModule?: string;
   agencyUrn?: string;
   groupId?: string;
+  /**
+   * image 字面量来源标记（FE-16 §2.2 软引导，2026-11-03 会话 e3c9f738）
+   * - 'list_templates'/'get_job'：从工具返回值取（正常路径）
+   * - 'default'：用模板默认 image（省略 properties.image）
+   * - 'manual'：模型凭记忆传（降级路径）
+   * 未传 + steps 中存在 properties.image 覆盖 → image_source_unverified 警告（不阻断，附 next_actions 引导先 list_templates）
+   */
+  imageSource?: 'list_templates' | 'get_job' | 'default' | 'manual';
 }
 
 /**
@@ -77,12 +85,14 @@ function validateJobBasics(input: Pick<CreateJobHandlerInput, 'jobName' | 'flavo
   return resolvedFlavor;
 }
 
-/** 空 scms 附加提示（FE-09 P2-C：任务无代码源，run_job 可能无仓库可构建） */
+/** 空 scms 附加提示（FE-09 P2-C：任务无代码源，run_job 可能无仓库可构建；FE-13 §2.3：提示升级为操作路径引导） */
 function buildScmsEmptyHint(input: CreateJobHandlerInput): string {
   if (input.scms && input.scms.length > 0) return '';
+  const pathGuidance =
+    '正确顺序为先 repo_prepare(建仓取 remote_url/repo_id) → repo_push(推代码) → 再 create_job 带 scms；对已建任务可用 update_job 补 scms（scm_type=codehub, repo_id 来自 repo_prepare 输出）。';
   return input.agencyUrn
-    ? '（注意：scms 为空 + agencyUrn——任务无代码源，后续 run_job 可能无仓库可构建；agencyUrn 须用户显式提供（模型不得自行填写绕过 scm 链路）；如需代码源请补 scms 或确认委托账号绑定仓库）'
-    : '（注意：scms 为空——任务无代码源；如需基于仓库构建请补 scms（scm_type=codehub, repo_id 等，FE-08 §1.5））';
+    ? `（注意：scms 为空 + agencyUrn——任务无代码源，后续 run_job 可能无仓库可构建；agencyUrn 须用户显式提供（模型不得自行填写绕过 scm 链路）；如需代码源请补 scms 或确认委托账号绑定仓库。${pathGuidance}）`
+    : `（注意：scms 为空——任务无代码源，run_job 可能无仓库可构建；若意图是"基于仓库构建"，${pathGuidance}）`;
 }
 
 /**
@@ -234,6 +244,34 @@ function toRequestScms(scms?: ScmInfo[]): Record<string, unknown>[] | undefined 
 /** 工具上下文（含 HTTP 客户端 + 会话）——复用云侧共享上下文 */
 export type CreateJobToolContext = CloudToolContext;
 
+/** ListJob 查重响应（仅取 job 名是否已存在） */
+interface ListJobForDupResponse {
+  result?: {
+    total?: number;
+    job_list?: Array<Record<string, unknown>>;
+  };
+}
+
+/**
+ * 任务名查重（FE-15 §4 #10 机制化，2026-10-23 会话 63534983）
+ * 会话证据：SKILL 规约 #10 要求 create_job 前 list_jobs(search=jobName) 查重，
+ * 但模型跳过查重、删旧建新绕过。此处工具内自查——
+ * GET /v1/job/list?search=<jobName>，命中同名任务 → E_PARAM 引导复用/改名/update_job，不重复新建。
+ * 查重失败（网络/接口错误）→ 不阻断（返回 false，让服务端 422 兜底）。
+ */
+async function checkJobNameDuplicate(ctx: CreateJobToolContext, jobName: string): Promise<boolean> {
+  try {
+    const resp = await ctx.client.call<ListJobForDupResponse>(
+      { method: 'GET', path: '/v1/job/list', query: { search: jobName, page_size: 20 } },
+      { idempotent: true },
+    );
+    const jobs = resp.result?.job_list ?? [];
+    return jobs.length > 0;
+  } catch {
+    return false; // 查重失败不阻断（服务端 422 兜底）
+  }
+}
+
 /**
  * create_job 工具 handler
  */
@@ -246,6 +284,16 @@ export async function createJobHandler(
     const flavor = validateJobBasics(input);
     // ② projectId 会话注入
     const projectId = resolveProjectId(input.projectId, ctx.session, ctx.envProjectId);
+
+    // ②.2 任务名查重（FE-15 §4 #10：命中同名 → 引导复用/改名/update_job，不重复新建）
+    const dupExists = await checkJobNameDuplicate(ctx, input.jobName);
+    if (dupExists) {
+      throw new ToolException(
+        'E_PARAM',
+        `项目下已存在同名构建任务 "${input.jobName}"（list_jobs 查重命中）`,
+        `请选择：① 用 update_job 修改已有任务（先 get_job 取原配置）；② 改名创建（加 -v2 等后缀）；③ 经用户确认后删除重建（delete_job 须 confirm=true）。禁止重复新建同名任务（服务端会返回 422 DEVCB.00031075）`,
+      );
+    }
 
     // ②.25 stepsPlan 前置校验（2026-10-10：拦截臆造裸 module_id，引导用 template_id）
     validateStepsPlanRefs(input.stepsPlan);
@@ -276,6 +324,36 @@ export async function createJobHandler(
       agencyUrn: input.agencyUrn,
       groupId: input.groupId,
     });
+
+    // ④.5 image 字面量来源软引导（FE-16 §2.2，2026-11-03 会话 e3c9f738）：
+    // steps 中存在 properties.image 覆盖（非默认值）且未传 imageSource → 返回 image_source_unverified 警告（不创建）
+    // 会话证据：模型传 image: "shell4.2.46-git1.8.3-zip6.00" 虽合法但未从 list_templates/get_job 验证——本次恰好命中，下次可能臆造
+    // 软引导：模型传 imageSource: 'manual' 显式降级即可继续（审计可追溯）
+    if (!input.imageSource) {
+      const hasImageOverride = (requestBody.steps ?? []).some(
+        (step) => {
+          const props = step.properties as Record<string, unknown> | undefined;
+          return props?.image !== undefined && props?.image !== null && props?.image !== '';
+        },
+      );
+      if (hasImageOverride) {
+        return makeSuccessResult(
+          {
+            created: false,
+            need_image_source: true,
+            job_name: input.jobName,
+            hint: 'steps 中存在 properties.image 覆盖但未传 imageSource——image 字面量须取自 list_templates/get_job 返回值（规约 #12：照抄 image_select 字面量，勿凭记忆臆造）',
+            next_actions: [
+              "携带 imageSource: 'list_templates'（已从 list_templates 取值）重试 create_job",
+              "或携带 imageSource: 'get_job'（已从 get_job 回读）重试 create_job",
+              "或携带 imageSource: 'default'（用模板默认 image，省略 properties.image）重试 create_job",
+              "或携带 imageSource: 'manual'（确认凭记忆传值，降级路径）重试 create_job",
+            ],
+          },
+          'create_job: 检测到 properties.image 覆盖但未传 imageSource——请声明 image 来源后重试',
+        );
+      }
+    }
 
     // ⑤ 自建 HTTP 调 POST /v1/job/create（契约 §2.4 URL）
     // 全契约字段直传（含 description/source_code/agency_urn——SDK 模型类曾静默丢弃这些字段）

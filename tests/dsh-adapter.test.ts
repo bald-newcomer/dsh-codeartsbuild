@@ -66,14 +66,15 @@ describe('toDshTool 适配层', () => {
     expect(value).toEqual({ status: 'SUCCESS' });
   });
 
-  // ─── 2026-10-10 注册形态回归：repo_push 必须为 local（无 ctx），否则 execute 会把 ctx 当 input 传入 ───
-  it('buildTools：codeartsbuild_repo_push 已注册且总数 18（注册级健全性）', () => {
+  // ─── 注册形态回归：repo_push / get_push_credential 必须为 local（无 ctx），否则 execute 会把 ctx 当 input 传入 ───
+  it('buildTools：codeartsbuild_repo_push 已注册且总数 19（注册级健全性）', () => {
     const tools = buildTools();
     const names = tools.map((t) => t.name);
     expect(names).toContain('codeartsbuild_repo_push');
     expect(names).toContain('codeartsbuild_repo_prepare');
-    // 原 16 云工具 + repo_build(local) + repo_push(local) = 18（2026-10-10 新增 repo_push）
-    expect(tools.length).toBe(18);
+    // 工具构成（19）：16 云工具（含 repo_prepare）+ 3 个 local 工具
+    //   = repo_push(local) + get_push_credential(local，FE-15 §2.1 新增) + repo_build(local)
+    expect(tools.length).toBe(19);
     // 参数 schema 含 repoPath/projectUuid（注册级——defineTool 会把 parameters 转为 JSON Schema）
     const push = tools.find((t) => t.name === 'codeartsbuild_repo_push') as unknown as {
       parameters?: { properties?: Record<string, unknown> } | Record<string, unknown>;
@@ -84,6 +85,45 @@ describe('toDshTool 适配层', () => {
     expect(properties.projectUuid).toBeTruthy();
   });
 
+  // ─── 2026-10-28 注册级健全性：get_push_credential 已注册、parameters 含 remoteUrl（必填） ───
+  it('buildTools：codeartsbuild_get_push_credential 已注册且 parameters 含必填 remoteUrl', () => {
+    const tools = buildTools();
+    expect(tools.map((t) => t.name)).toContain('codeartsbuild_get_push_credential');
+
+    const cred = tools.find((t) => t.name === 'codeartsbuild_get_push_credential') as unknown as {
+      parameters?: { properties?: Record<string, unknown>; required?: unknown[] } | Record<string, unknown>;
+    };
+    const params = (cred?.parameters ?? {}) as Record<string, unknown>;
+    const properties = (params.properties ?? params) as Record<string, unknown>;
+    // remoteUrl 必填（构造 authedUrl 的唯一必需入参）
+    expect(properties.remoteUrl).toBeTruthy();
+    expect((properties.remoteUrl as { type?: string }).type).toBe('string');
+    // required 声明在根级 schema 上（defineTool 编译为隐式 open object 根）
+    expect(params.required).toEqual(expect.arrayContaining(['remoteUrl']));
+    // accessToken 为可选入参（不进入 required）
+    expect(properties.accessToken).toBeTruthy();
+    expect(params.required as string[]).not.toContain('accessToken');
+  });
+
+  // ─── local 形态端到端：get_push_credential 传合法 input 不被 ctx 覆盖 ───
+  it('buildTools：get_push_credential execute 传合法 input 不被 ctx 覆盖（local 形态端到端）', async () => {
+    // 若被当 cloud 工具注册，execute 会把 getContext()（含 client 的对象）当第一个参数传入，
+    // handler 收到的 input.remoteUrl 为 undefined → 返回 missing_remote_url；
+    // local 修复后 execute 直接调 handler(input) → 走通 token 解析与 authedUrl 构造。
+    const tools = buildTools();
+    const cred = tools.find((t) => t.name === 'codeartsbuild_get_push_credential') as unknown as {
+      execute: (args: unknown) => Promise<unknown>;
+    };
+    const remoteUrl = 'https://codehub.devcloud.cn-north-4.huaweicloud.com/d9ef97fa845d412687496770dd9f45ae/demo.git';
+    const result = await cred.execute({ remoteUrl, accessToken: 'EXPLICIT_TOKEN_for_adapter' });
+    const data = result as { available?: boolean; reason?: string; username?: string; authed_url?: string };
+
+    expect(data.available).toBe(true);
+    expect(data.reason).toBeUndefined();
+    expect(data.username).toBe('private-token');
+    expect(data.authed_url).toContain('https://private-token:EXPLICIT_TOKEN_for_adapter@codehub.devcloud.cn-north-4.huaweicloud.com');
+  });
+
   it('buildTools：repo_push execute 传合法 input 不被 ctx 覆盖（local 形态端到端）', async () => {
     // 若 repo_push 被当 cloud 工具注册，execute 会把 getContext()（含 client 的对象）当第一个参数传入，
     // 导致 handler 收到 {client, session, envProjectId} 而非 {repoPath, projectUuid} → repoPath 必填。
@@ -92,14 +132,14 @@ describe('toDshTool 适配层', () => {
     const push = tools.find((t) => t.name === 'codeartsbuild_repo_push') as unknown as {
       execute: (args: unknown) => Promise<unknown>;
     };
-    // 传入缺 remoteUrl 的合法 input：local 分支 → handler 返回 pushed:false + missing_remote_url；
-    // 若被当 cloud（ctx 注入），会抛 repoPath 必填（E_PARAM）。
+    // 传入缺 remoteUrl 的合法 input：local 分支 → handler 先过非 git 仓库预检（FE-13 §2.2，
+    // D:/tmp/nonexist-repo 不存在 .git → not_git_repo）；若被当 cloud（ctx 注入），会抛 repoPath 必填（E_PARAM）。
     const result = await push.execute({
       repoPath: 'D:/tmp/nonexist-repo',
       projectUuid: 'aef718e1ac5f4bed9d74092b3ea582ca',
     });
     const data = result as { pushed?: boolean; reason?: string };
     expect(data.pushed).toBe(false);
-    expect(data.reason).toBe('missing_remote_url');
+    expect(data.reason).toBe('not_git_repo');
   });
 });

@@ -41,6 +41,8 @@ export CAB_REGION=cn-north-4
 
 > 凭据源由插件 config `credentialSource` 选择（`env` / `file`，默认自动探测：有 CAB_AK → env；cwd 有 `.dsh-codearts` → file）；AK/SK 仅在进程内签名使用，插件不落盘、不入日志（详见 auth.md）。
 
+> **需要推送代码时另配访问令牌**（与 AK/SK 无关）：`CAB_CODEARTSREPO_TOKEN`（环境变量或 `.dsh-codearts` 同名键）——`repo_push` 自动注入 `private-token` 认证 URL；未配置时返回 `missing_credentials` 引导。详见 auth.md §2.4。
+
 ### 1.3 装配插件（dsh）
 
 ```yaml
@@ -159,8 +161,8 @@ get_log(recordId)                           → 拉取并清洗日志
 
 | 问题 | 处理 |
 |------|------|
-| 凭据未配置 | 设置 `CAB_AK`/`CAB_SK`（或配置 hcloud config），见 auth.md §2 |
-| 认证失败 401 | AK/SK 错误/失效，或 hcloud config 为密文存储（改用环境变量），见 auth.md §4 |
+| 凭据未配置 | 设置 `CAB_AK`/`CAB_SK` 环境变量或工作目录 `.dsh-codearts`，见 auth.md §2 |
+| 认证失败 401 | AK/SK 错误/失效，见 auth.md §4 |
 | 网络不通 | 检查代理（`HTTPS_PROXY` 或 config proxyUrl）；Windows 需 `NODE_TLS_REJECT_UNAUTHORIZED=0`（schannel 证书吊销检查） |
 | 找不到项目/任务 | `list_projects` / `list_jobs` 确认 ID；检查 region 是否正确 |
 | 构建失败 | 走 G2 诊断流程（get_log → 分析 → 修复闭环） |

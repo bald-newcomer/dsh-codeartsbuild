@@ -40,7 +40,7 @@ docs/
 |------|------|------|
 | [FE-01-本地代码仓构建流程设计-20260919.md](design/FE-01-本地代码仓构建流程设计-20260919.md) | ✅ | 代码仓构建流程（单一 repo_build、异常升级、留档、module_id 全限定名） |
 | [FE-02-日志清洗器规范-20260918.md](design/FE-02-日志清洗器规范-20260918.md) | ✅ | 日志清洗器（基于真实日志重设计、ZIP 解压规约） |
-| [FE-03-工具详细设计-20260918.md](design/FE-03-工具详细设计-20260918.md) | ✅ | 16 工具详细设计（create_job 详尽：stepsPlan 组装器 + openapi 对齐 + get_status 落定） |
+| [FE-03-工具详细设计-20260918.md](design/FE-03-工具详细设计-20260918.md) | ✅ | 19 工具详细设计（create_job 详尽：stepsPlan 组装器 + openapi 对齐 + get_status 落定） |
 | [FE-04-Step模板库拆解-20260918.md](design/FE-04-Step模板库拆解-20260918.md) | ✅ | Step 模板库（推荐组合 + step 默认值 + 插件权威清单 + 模板引擎） |
 | [FE-05-华为云调用承载方案对比评审决策-20260920.md](design/FE-05-华为云调用承载方案对比评审决策-20260920.md) | ✅ | 独立迭代特性：SDK → 自建 HTTP 承载方案对比评审决策 |
 | [FE-06-自建HTTP承载切换方案-20260920.md](design/FE-06-自建HTTP承载切换方案-20260920.md) | ✅ | 自建 HTTP 承载切换实施计划（认证设计、HTTP 客户端封装、实施步骤、回滚条件） |
@@ -50,6 +50,10 @@ docs/
 | [FE-10-冗长handler结构优化重构-20261008.md](design/FE-10-冗长handler结构优化重构-20261008.md) | ✅ | 冗长 handler 纯结构重构（repo_prepare/wait_build/create_job 提取辅助函数，零行为变更，182 单测原样通过） |
 | [FE-11-step模板可用版本枚举迁移-20261009.md](design/FE-11-step模板可用版本枚举迁移-20261009.md) | 📐 | step-index.json 的 select 枚举迁移到 step-templates.json（消除模型臆造版本号根因，会话轨迹暴露 nodejs16.13.0 不存在缺陷） |
 | [FE-12-推送链路串联与git操作规约-20261011.md](design/FE-12-推送链路串联与git操作规约-20261011.md) | 📐 | 8155dd01 会话 4 优化点设计：repo_push remoteUrl 自动探测 / 宿主 git 操作规约（禁 reset --hard）/ SKILL 串联 / 产物链路引导 |
+| [FE-13-推送链路缺陷修复-updateJob项目兜底-repoPush非git预检-20261016.md](design/FE-13-推送链路缺陷修复-updateJob项目兜底-repoPush非git预检-20261016.md) | ✅ | 58dccf5f 会话缺陷修复：update_job projectId 兜底链 / repo_push 非 git 预检 / create_job 空 scms 引导 / git 凭据与编辑器知识沉淀 |
+| [FE-14-本地构建子agent探索方案-20261026.md](design/FE-14-本地构建子agent探索方案-20261026.md) | ✅ | b98a0fdc 会话缺陷：本地构建改由 subagent 子 agent 自主探索（build info JSON 指导云端模板）；待宿主环境实测 |
+| [FE-15-凭据机制化与规约下沉设计-20261026.md](design/FE-15-凭据机制化与规约下沉设计-20261026.md) | ✅ | 63534983 会话 4 类问题：repo_push 凭据机制化（accessToken + 预检）/ 模板推荐 / 任务名查重 + delete 确认机制化 / SKILL 规约精简；2026-10-28 追加 get_push_credential |
+| [FE-16-推码分支预检与模板字段契约机制化-20261103.md](design/FE-16-推码分支预检与模板字段契约机制化-20261103.md) | ✅ | e3c9f738 会话 4 类问题：step 字段契约（拦 shellContent）/ image 来源软引导 / 推码分支预检 + PROTECTED_BRANCH / language 模糊匹配 |
 
 ### 测试设计层（test/）
 
@@ -64,8 +68,8 @@ docs/
 
 | 文档 | 状态 | 说明 |
 |------|------|------|
-| [api-contract.md](api/api-contract.md) | ✅ | 17 原子工具契约（唯一事实来源）、工作流编排、禁用 v3/v4 旧版接口（仅 v1）、状态枚举 |
-| [tools/](api/tools/) | ✅ | 各工具契约详情（18 个文件，按工具拆分） |
+| [api-contract.md](api/api-contract.md) | ✅ | 19 原子工具契约（唯一事实来源）、工作流编排、禁用 v3/v4 旧版接口（仅 v1）、状态枚举 |
+| [tools/](api/tools/) | ✅ | 各工具契约详情（19 个文件，按工具拆分） |
 | [koocli-operation-reference.md](api/koocli-operation-reference.md) | ✅ | KooCLI 操作列表参考资料（HTTP 实现接口名 ↔ URL 对照，实测归档） |
 
 ### 运维/用户文档层（operations/）
@@ -74,7 +78,7 @@ docs/
 |------|------|------|
 | [usage.md](operations/usage.md) | ✅ | 使用指南：安装、配置、典型流程 |
 | [errors.md](operations/errors.md) | ✅ | 错误码与故障排查 |
-| [auth.md](operations/auth.md) | ✅ | AK/SK 签名认证与凭据管理（凭据注入抽象：env / hcloud config / .dsh-codearts 文件） |
+| [auth.md](operations/auth.md) | ✅ | AK/SK 签名认证与凭据管理（凭据注入抽象：env / .dsh-codearts 文件；推码令牌 `CAB_CODEARTSREPO_TOKEN` 见 §2.4） |
 | [artifacts.md](operations/artifacts.md) | ✅ | 构建产物规范 |
 | [risk-compliance.md](operations/risk-compliance.md) | ✅ | 风险与合规 |
 | [test-run-reference.md](operations/test-run-reference.md) | ✅ | TEST-04 测试启动与验证流程（可复现；环境/装配/凭据/踩坑；待 skill 化） |

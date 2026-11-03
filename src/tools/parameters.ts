@@ -50,6 +50,7 @@ export const createJobParameters: Record<string, unknown> = {
   autoUpdateSubModule: { type: 'string', description: '自动更新子模块' },
   agencyUrn: { type: 'string', description: '委托 urn（默认空/不使用；模型不得自行填写，须用户显式提供——曾发生模型用 agencyUrn + 空 scms 绕过 scm 链路致任务无代码源）' },
   groupId: { type: 'string', description: '任务分组 ID（非空须来自 get_job 回读的已有分组或用户显式确认，禁止臆造——曾触发 422 分组不存在）' },
+  imageSource: { type: 'string', description: 'image 字面量来源标记（FE-16 §2.2 软引导）：list_templates（从 list_templates 取值）/ get_job（从 get_job 回读）/ default（用模板默认 image，省略 properties.image）/ manual（凭记忆传，降级路径）；未传 + steps 中存在 properties.image 覆盖 → need_image_source 警告不创建（引导声明来源后重试）', enum: ['list_templates', 'get_job', 'default', 'manual'] },
 };
 
 /** list_projects 参数（无） */
@@ -81,6 +82,7 @@ export const updateJobParameters: Record<string, unknown> = {
 /** delete_job 参数（契约 §2.6） */
 export const deleteJobParameters: Record<string, unknown> = {
   jobId: { type: 'string', description: '构建任务 ID（删除不可逆）', required: true },
+  confirm: { type: 'boolean', description: '用户显式确认删除（默认 false；true 才执行不可逆删除，须经用户确认——FE-15 机制化）' },
 };
 
 /** run_job 参数（契约 §2.7） */
@@ -179,6 +181,13 @@ export const repoPushParameters: Record<string, unknown> = {
   remoteUrl: { type: 'string', description: '目标 codehub 远端地址（默认取 repo_prepare 输出 remote_url）' },
   proxyUrl: { type: 'string', description: '内网代理（默认 http://proxycn2.huawei.com:8080，可被环境覆盖）' },
   sslVerify: { type: 'boolean', description: '是否关闭 SSL 校验（默认 false=内网自签名证书）' },
+  accessToken: { type: 'string', description: 'CodeArtsRepo HTTPS 访问令牌（可选，FE-15）。提供时工具自动构造 https://private-token:<TOKEN>@codehub... 一次性 push URL（git -c 进程级覆盖，不写盘/不改 origin 配置/不进输出）。令牌由用户提供（CodeArts 控制台 → 个人设置 → 代码托管 → 访问令牌），模型不得自行臆造' },
+};
+
+/** get_push_credential 参数（FE-15 §2.1 优化，2026-10-28） */
+export const getPushCredentialParameters: Record<string, unknown> = {
+  remoteUrl: { type: 'string', description: '目标 codehub 远端地址（必填，取 repo_prepare 输出 remote_url）', required: true },
+  accessToken: { type: 'string', description: 'CodeArtsRepo HTTPS 访问令牌（可选，优先级最高；缺省时从 env CAB_CODEARTSREPO_TOKEN 或 .dsh-codearts 文件读取）' },
 };
 
 /** 通用导出（供 tools/index.ts 组装 InternalToolDef） */
@@ -201,6 +210,7 @@ export const TOOL_PARAMETERS: Record<string, Record<string, unknown>> = {
   codeartsbuild_repo_build: repoBuildParameters,
   codeartsbuild_repo_prepare: repoPrepareParameters,
   codeartsbuild_repo_push: repoPushParameters,
+  codeartsbuild_get_push_credential: getPushCredentialParameters,
 };
 
 export type { InternalToolDef };

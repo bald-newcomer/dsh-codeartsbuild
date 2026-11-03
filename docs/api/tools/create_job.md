@@ -13,7 +13,7 @@
 | **描述** | 创建任务（入参较复杂），**支持模板化组装**：传 `stepsPlan`（意图级步骤计划：**步骤顺序 + 每步参数**，推荐）或 `language`（语言/场景速选默认组合）或 `steps`（原样透传，高级）；支持上传软件包、上传镜像、上传 OBS、下载 OBS |
 | **KooCLI 操作** | `CreateNewJob`（POST） |
 | **URL** | `/v1/job/create` |
-| **注意** | 调用前先 `repo_build` 完成本地构建验证，或 `list_templates` 获取可用模板；**`arch` 为必填**；steps 组装：① 显式 `steps` 最高优先；② `stepsPlan`（意图级，顺序+参数）由组装器补全 module_id/默认值；③ `language` 速选默认组合（`step-templates.json` + 语言组合映射，见 FE-04-Step模板库拆解-20260918.md §7）；模板化组装前模型可用 `list_templates` 预览官方模板 |
+| **注意** | 调用前先 `repo_build` 完成本地构建验证，或 `list_templates` 获取可用模板；**`arch` 为必填**；**任务名查重机制化（FE-15）**：创建前工具自动 `list_jobs(search=jobName)` 自查，命中同名 → E_PARAM 引导复用/改名/`update_job`，不重复新建（服务端 422 `DEVCB.00031075` 兜底）；**step 字段契约机制化（FE-16 §2.1）**：`steps[].properties` 键名必须在模板白名单内（`shellContent` 不在 shell-command 模板 → E_PARAM + 推荐 `command`）；**image 来源软引导（FE-16 §2.2）**：`steps` 含 `properties.image` 覆盖但未传 `imageSource` → `need_image_source` 警告不创建（引导声明来源后重试）；**language 模糊匹配（FE-16 §2.4）**：无完全匹配时挑最相近的（`Python/uv` → `Python/其他（setuptools 等）`），无匹配 → E_PARAM 列可用语言；steps 组装：① 显式 `steps` 最高优先；② `stepsPlan`（意图级，顺序+参数）由组装器补全 module_id/默认值；③ `language` 速选默认组合（`step-templates.json` + 语言组合映射，见 FE-04-Step模板库拆解-20260918.md §7）；模板化组装前模型可用 `list_templates` 预览官方模板 |
 
 **输入参数**（openapi.yaml `CreateBuildJobRequestBody`，必填仅 arch/project_id/job_name；steps 业务上建议必填）：
 
@@ -36,6 +36,7 @@
 | autoUpdateSubModule | string | ❌ | 是否自动更新子模块（false/true，默认 false） |
 | agencyUrn | string | ❌ | 委托 urn |
 | groupId | string | ❌ | 任务分组 ID |
+| imageSource | string | ❌ | image 字面量来源标记（FE-16 §2.2 软引导）：`list_templates`（从 list_templates 取值）/ `get_job`（从 get_job 回读）/ `default`（用模板默认 image，省略 properties.image）/ `manual`（凭记忆传，降级路径）；未传 + steps 中存在 properties.image 覆盖 → `need_image_source` 警告不创建（引导声明来源后重试） |
 
 > \* steps 在 openapi 定义中非必填，但**无 steps 的任务无构建意义**，且 **KooCLI 封装实测要求 `--steps.[N].module_id`/`name` 必填**（hcloud help required）：`steps`/`stepsPlan`/`language` 三选一必填（FE-03-工具详细设计-20260918.md §3.2 校验规则）；优先级 `steps` > `stepsPlan` > `language`。
 

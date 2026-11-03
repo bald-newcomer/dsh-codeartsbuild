@@ -142,7 +142,7 @@ ShowNewOutput (/v1/job/{id}/{no}/output，KooCLI 未封装，自建 HTTP 承载�
 
 > 各工具详细契约（输入/输出/字段映射/实测确认）已拆分为独立文档：`docs/api/tools/*.md`。以下为速查索引。
 
-### 2.0 工具速查表（18 个）
+### 2.0 工具速查表（19 个）
 
 **本地构建域（B. 代码仓构建）**
 
@@ -150,7 +150,8 @@ ShowNewOutput (/v1/job/{id}/{no}/output，KooCLI 未封装，自建 HTTP 承载�
 |---|----------|------|----------|----------|
 | 2.16 | `codeartsbuild_repo_build` | 本地构建（唯一）：探测仓库类型→编译指导→执行编译→产物收集→留档 内置 | AI 自主编译代码仓；编译过程由模型自行判断 | [repo_build.md](tools/repo_build.md) |
 | 2.17 | `codeartsbuild_repo_prepare` | 本地仓库准备 CodeArtsRepo 仓库（检测远端→建仓+回读 RepoInfo），返回远程 URL + 推送指引；**实际 push 由 repo_push 接手** | 本地仓库无远端时建仓并取得 RepoInfo，打通 create_job 前置 | [repo_prepare.md](tools/repo_prepare.md) |
-| 2.18 | `codeartsbuild_repo_push` | 推送本地仓库代码到 CodeArtsRepo（内置一次智能尝试：代理+SSL 自动携带、origin 项目归属预检、**缺 remoteUrl 自动探测本地 codehub 远端**、失败 stderr 分类输出 next_actions） | repo_prepare 建仓后推送代码；复杂凭据/崩溃交模型/用户接管 | [repo_push.md](tools/repo_push.md) |
+| 2.18 | `codeartsbuild_repo_push` | 推送本地仓库代码到 CodeArtsRepo（内置一次智能尝试：代理+SSL 自动携带、origin 项目归属预检、**缺 remoteUrl 自动探测本地 codehub 远端**、**非 git 仓库预检（not_git_repo，FE-13）**、**分支预检（branch_mismatch：本地当前分支 ≠ 入参 branch 时警告不推送，FE-16 §2.3）**、**凭据机制化（accessToken→private-token 注入 + missing_credentials 预检，FE-15）**、失败 stderr 分类（含 **PROTECTED_BRANCH：受保护分支拒 force push，引导走 rebase 非 -f，FE-16 §2.3**）输出 next_actions） | repo_prepare 建仓后推送代码；复杂凭据/崩溃交模型/用户接管 | [repo_push.md](tools/repo_push.md) |
+| 2.19 | `codeartsbuild_get_push_credential` | 获取推送凭据：按来源链解析令牌（显式 > env `CAB_CODEARTSREPO_TOKEN` > `.dsh-codearts` 同名键）→ 构造 `https://private-token:<TOKEN>@codehub...` 认证 URL → 返回 `authed_url` + 可直接复制的 `commands`；未配置 → `available:false + reason:no_token` 引导 | `repo_push` 失败后转宿主命令（pwsh/bash）推送前取凭据，**禁止模型自行拼 URL**（FE-15 §2.1） | [get_push_credential.md](tools/get_push_credential.md) |
 
 **云侧·项目感知（A）**
 
@@ -164,9 +165,9 @@ ShowNewOutput (/v1/job/{id}/{no}/output，KooCLI 未封装，自建 HTTP 承载�
 
 | # | 工具名称 | 定义 | 使用场景 | 契约详情 |
 |---|----------|------|----------|----------|
-| 2.4 | `codeartsbuild_create_job` | 创建任务（v1 `CreateNewJob`） | 本地构建配置落到云端 | [create_job.md](tools/create_job.md) |
-| 2.5 | `codeartsbuild_update_job` | 更新任务（v1 `UpdateNewJob`） | 修改任务配置 | [update_job.md](tools/update_job.md) |
-| 2.6 | `codeartsbuild_delete_job` | 删除任务（v1 `DeleteTheJob`），不可逆 | 废弃任务清理（须确认） | [delete_job.md](tools/delete_job.md) |
+| 2.4 | `codeartsbuild_create_job` | 创建任务（v1 `CreateNewJob`；**任务名查重机制化：创建前 list_jobs 自查，命中同名 → E_PARAM 引导，FE-15**；**step 字段契约机制化：steps[].properties 键名必须在模板白名单内（FE-16 §2.1，拦截 shellContent 等错误字段名）**；**image 来源软引导：steps 含 properties.image 覆盖但未传 imageSource → need_image_source 警告不创建（FE-16 §2.2）**；**language 模糊匹配：无完全匹配时挑最相近的（如 Python/uv → Python/其他（setuptools 等）），无匹配 → E_PARAM 列可用语言（FE-16 §2.4）**） | 本地构建配置落到云端 | [create_job.md](tools/create_job.md) |
+| 2.5 | `codeartsbuild_update_job` | 更新任务（v1 `UpdateNewJob`；projectId 兜底链：显式 > 会话 > 配置 > get_job 回读，FE-13 §2.1） | 修改任务配置 | [update_job.md](tools/update_job.md) |
+| 2.6 | `codeartsbuild_delete_job` | 删除任务（v1 `DeleteTheJob`），不可逆；**confirm 确认机制化（FE-15：缺省返回 need_confirmation，须用户确认 confirm=true 才删）** | 废弃任务清理（须用户显式确认） | [delete_job.md](tools/delete_job.md) |
 | 2.13 | `codeartsbuild_list_templates` | 用户自定义模板列表（v1 `ListCustomTemplate`） | create_job 前检查可用的用户自建模板 | [list_templates.md](tools/list_templates.md) |
 
 **云侧·执行控制（D）**
@@ -211,8 +212,8 @@ ShowNewOutput (/v1/job/{id}/{no}/output，KooCLI 未封装，自建 HTTP 承载�
 
 | 错误码 | 含义 | 典型触发 | 建议处理 |
 |--------|------|----------|----------|
-| `E_CONFIG` | 配置缺失/非法 | 凭据未配置（env 缺 CAB_AK/SK 或 hcloud config 不可读）、region 无 endpoint | 配置凭据（见 auth.md §2） |
-| `E_AUTH` | 认证失败 | AK/SK 失效（401）、无权限（403） | 检查 AK/SK 与权限；hcloud config 密文时改用环境变量 |
+| `E_CONFIG` | 配置缺失/非法 | 凭据未配置（env 缺 CAB_AK/SK 且无 `.dsh-codearts`）、region 无 endpoint | 配置凭据（见 auth.md §2） |
+| `E_AUTH` | 认证失败 | AK/SK 失效（401）、无权限（403） | 检查 AK/SK 与权限（auth.md §4） |
 | `E_PARAM` | 参数校验失败 | 必填缺失、类型错误、module_id 非白名单 | 返回字段级错误列表 |
 | `E_API` | CodeArtsBuild 业务错误 | 任务不存在、重名、无权限 | 透传 HTTP 响应 error_code/error_msg |
 
@@ -279,20 +280,21 @@ ShowNewOutput (/v1/job/{id}/{no}/output，KooCLI 未封装，自建 HTTP 承载�
 
 ## 6. 工具注册全景与工作流编排
 
-### 6.1 工具注册全景（18 个原子工具）
+### 6.1 工具注册全景（19 个原子工具）
 
 | 域 | 工具 | 场景 |
 |----|------|------|
 | **本地构建域** | `repo_build`（探测+编译指导+执行+产物+留档 内置） | B. 代码仓构建 |
 | **仓库准备** | `repo_prepare`（本地仓库准备 CodeArtsRepo 仓库：检测远端→建仓+回读 RepoInfo） | B. 代码仓构建（create_job 前置） |
 | **仓库推送** | `repo_push`（本地仓库推送代码到 CodeArtsRepo：一次智能尝试 + 失败分类） | B. 代码仓构建（repo_prepare 后接续） |
+| **推送凭据** | `get_push_credential`（解析令牌 → 构造 private-token 认证 URL + 可执行命令；repo_push 失败后转宿主命令时调用） | B. 代码仓构建（repo_push 接管） |
 | **云侧·项目感知** | `list_projects` / `list_jobs` / `get_job` | A. 项目感知 |
 | **云侧·任务编排** | `create_job` / `update_job` / `delete_job` / `list_templates` | C. 任务编排 |
 | **云侧·执行控制** | `run_job` / `stop_job` | D. 执行控制 |
 | **云侧·状态监控** | `get_status` / `list_records` / `get_record` / `wait_build` | E. 状态监控 |
 | **云侧·产物/日志** | `list_artifacts` / `get_log` | F/G. 产物/诊断 |
 
-> 注：v0.3.x 的 `analyze_repo` 已移除；本地构建域为 `repo_build`（2.16）+ `repo_prepare`（2.17）+ `repo_push`（2.18，FE-08 §5 形态 B，2026-10-10：独立推送工具内置一次智能尝试——代理/SSL 自动携带、origin 项目归属预检、失败 stderr 分类；复杂凭据/Windows 崩溃交模型/用户），编译过程由模型自决（FE-01-本地代码仓构建流程设计-20260919.md §4）。
+> 注：v0.3.x 的 `analyze_repo` 已移除；本地构建域为 `repo_build`（2.16）+ `repo_prepare`（2.17）+ `repo_push`（2.18，FE-08 §5 形态 B，2026-10-10：独立推送工具内置一次智能尝试——代理/SSL 自动携带、origin 项目归属预检、失败 stderr 分类；复杂凭据/Windows 崩溃交模型/用户）+ `get_push_credential`（2.19，FE-15 §2.1，2026-10-28：repo_push 失败转宿主命令时复用凭据），编译过程由模型自决（FE-01-本地代码仓构建流程设计-20260919.md §4）。
 
 ### 6.2 工作流一：完整构建生命周期（G1）
 
@@ -342,7 +344,7 @@ repo_build(FAILED, 返回结构化错误) → 模型自决修复(通用 bash 装
 
 ### 6.6 编排实现
 
-- **dsh 注册**：18 个原子工具均经 `ctx.tools.register(defineTool({...}))` 注册（schemastery schema）
+- **dsh 注册**：19 个原子工具均经 `ctx.tools.register(defineTool({...}))` 注册（schemastery schema）
 - **LLM 编排（主）**：`skills/codeartsbuild/SKILL.md` 定义调用序列与规约，LLM 按需组合原子工具
 - **本地构建已收敛**：`repo_build` 单工具封装探测/指导/执行/产物/留档，无需额外组合层
 
@@ -355,7 +357,7 @@ repo_build(FAILED, 返回结构化错误) → 模型自决修复(通用 bash 装
 | G1 自动创建并执行 | 工作流一（§6.2）：repo_build→...→list_artifacts | ✅ |
 | G2 异常诊断 | 工作流二（§6.3）：get_log→清洗→LLM | ✅ |
 | G3 产物链接 | 工具 `list_artifacts` 返回 `console_url` 页面跳转链接（当前版本不提供下载） | ✅ |
-| G5 dsh 插件为主 | 18 个原子工具经 dsh `defineTool` 注册；LLM 编排（§6.6） | ✅ |
+| G5 dsh 插件为主 | 19 个原子工具经 dsh `defineTool` 注册；LLM 编排（§6.6） | ✅ |
 | B. 代码仓构建（repo-analyzer v0.2） | 工具 2.16 `repo_build`（本地构建域 1 工具，模型自决） | ✅ |
 | KooCLI 实测操作名 | 云侧工具映射 `ShowRelatedProject`/`CreateNewJob`/`ExecuteJob`/`ShowJobBuildRecordDetail`/`DownloadBuildFullLog`（v1）；`ShowNewOutput`（v1，自建 HTTP 承载统一实现） | ✅（已实测/评审确认） |
 | 禁用 v3 旧版接口 | §1.4.1 禁用清单（v3/v4 全部禁用，产物改 v1 `ShowNewOutput`） | ✅ |

@@ -4,13 +4,13 @@
 
 ### 2.6 codeartsbuild_delete_job
 
-删除构建任务。**不可逆，调用前必须与用户确认**。
+删除构建任务。**不可逆，缺省返回 `need_confirmation` 不删除**——须用户显式确认后携 `confirm=true` 才执行（FE-15 机制化，2026-10-23 会话 63534983）。
 
 | 项 | 值 |
 |----|----|
 | **名称** | `codeartsbuild_delete_job` |
 | **场景** | C. 任务编排 |
-| **描述** | 按 jobId 删除任务；不可逆 |
+| **描述** | 按 jobId 删除任务；不可逆；`confirm` 缺省 false → 返回 `need_confirmation` + 引导，**不执行删除** |
 | **KooCLI 操作** | `DeleteTheJob`（**DELETE**，openapi 实测为 HTTP DELETE） |
 | **URL** | `/v1/job/{job_id}/delete` |
 
@@ -19,8 +19,19 @@
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | jobId | string | ✅ | 构建任务 ID（path） |
+| confirm | boolean | ❌ | 用户显式确认删除（默认 false；**true 才执行不可逆删除**——模型层不得未经用户确认直接删除，FE-15） |
 
-**输出示例**（openapi 实测响应）：
+**输出示例**（未确认，缺省）：
+
+```json
+{
+  "deleted": false,
+  "need_confirmation": true,
+  "next_actions": ["删除不可逆，请向用户确认后携带 confirm=true 重试"]
+}
+```
+
+**输出示例**（确认后成功，openapi 实测响应）：
 
 ```json
 {
