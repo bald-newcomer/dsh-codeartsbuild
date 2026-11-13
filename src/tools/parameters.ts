@@ -24,7 +24,6 @@ export const createJobParameters: Record<string, unknown> = {
       },
     },
   },
-  language: { type: 'string', description: '语言/场景标识（速选默认组合），可用枚举（FE-04 §1）：Java/Maven（jar）、Java/Maven（容器）、Java/Gradle、Java/Android、JavaScript/npm、JavaScript/npm（容器）、Python/PyInstaller、Python/其他（setuptools 等）、Go——TS/JS/Node 一律用 JavaScript/npm（环境锚点）；禁止自造枚举值' },
   steps: {
     type: 'array',
     description: '构建步骤（原样透传，最高优先）[{module_id, name, properties?, enable?}]',
@@ -40,6 +39,7 @@ export const createJobParameters: Record<string, unknown> = {
     },
   },
   scms: { type: 'array', description: '代码源 [{scm_type, repo_id, repo_name, branch, url}]；scm_type 仅支持 codehub（CodeArtsRepo），repo_id/url 取自建仓返回或已有任务回读，禁止臆造' },
+  confirmEmptyScms: { type: 'boolean', description: '空 scms 创建确认（默认 false）：scms 为空时工具返回 need_confirmation 不创建，引导先 repo_prepare→repo_push 再带 scms 创建；确需无代码源任务（稍后 update_job 补 scms / 运行期 scm 覆盖）→ 用户确认后携带 true 重试' },
   parameters: { type: 'array', description: '自定义参数双层结构' },
   description: { type: 'string', description: '任务描述' },
   flavor: { type: 'string', description: '执行机规格，当前仅支持 DEFAULT（缺省即 DEFAULT）；禁止臆造其他值' },
@@ -50,7 +50,7 @@ export const createJobParameters: Record<string, unknown> = {
   autoUpdateSubModule: { type: 'string', description: '自动更新子模块' },
   agencyUrn: { type: 'string', description: '委托 urn（默认空/不使用；模型不得自行填写，须用户显式提供——曾发生模型用 agencyUrn + 空 scms 绕过 scm 链路致任务无代码源）' },
   groupId: { type: 'string', description: '任务分组 ID（非空须来自 get_job 回读的已有分组或用户显式确认，禁止臆造——曾触发 422 分组不存在）' },
-  imageSource: { type: 'string', description: 'image 字面量来源标记（FE-16 §2.2 软引导）：list_templates（从 list_templates 取值）/ get_job（从 get_job 回读）/ default（用模板默认 image，省略 properties.image）/ manual（凭记忆传，降级路径）；未传 + steps 中存在 properties.image 覆盖 → need_image_source 警告不创建（引导声明来源后重试）', enum: ['list_templates', 'get_job', 'default', 'manual'] },
+  projectRepoType: { type: 'string', description: '项目语言类型（FE-17 §2.1，来自 subagent build_info 的 repo_type）：python/npm/maven/go/c/cpp/rust/other；用于模板选用 mismatch 检测（python 项目传 shell-command 跑 pip 会被拦——改用 pyinstaller-build 覆盖 command）', enum: ['python', 'npm', 'maven', 'gradle', 'go', 'rust', 'c', 'cpp', 'other'] },
 };
 
 /** list_projects 参数（无） */
@@ -76,7 +76,7 @@ export const getJobParameters: Record<string, unknown> = {
 /** update_job 参数（契约 §2.5） */
 export const updateJobParameters: Record<string, unknown> = {
   jobId: { type: 'string', description: '构建任务 ID（先 get_job 取原配置，jobId 来自 get_job/list_jobs 返回）', required: true },
-  body: { type: 'object', additionalProperties: true, description: '与 create_job 同构的全量配置片段（含 arch/projectId/jobName/steps 或 stepsPlan/language）；全量覆盖语义——必须先 get_job 取原配置，修改后整体提交，禁止手拼残缺 body', required: true },
+  body: { type: 'object', additionalProperties: true, description: '与 create_job 同构的全量配置片段（含 arch/projectId/jobName/steps 或 stepsPlan）；全量覆盖语义——必须先 get_job 取原配置，修改后整体提交，禁止手拼残缺 body', required: true },
 };
 
 /** delete_job 参数（契约 §2.6） */
@@ -137,6 +137,7 @@ export const listTemplatesParameters: Record<string, unknown> = {
   name: { type: 'string', description: '模板名称模糊查询' },
   page: { type: 'integer', description: '页码（≥0）' },
   pageSize: { type: 'integer', description: '每页条数（1~100）' },
+  source: { type: 'string', description: '查询来源：custom（缺省，用户自定义模板）/ official（官方模板）/ all（并行查两个）', enum: ['custom', 'official', 'all'] },
 };
 
 /** wait_build 参数（契约 §2.14） */
@@ -154,14 +155,6 @@ export const getLogParameters: Record<string, unknown> = {
   logLevel: { type: 'string', description: '日志等级', enum: ['INFO', 'DEBUG'] },
   maxBytes: { type: 'integer', description: '日志截断上限（默认 262144）' },
   compress: { type: 'boolean', description: '是否压缩日志' },
-};
-
-/** repo_build 参数（契约 §2.16） */
-export const repoBuildParameters: Record<string, unknown> = {
-  repoPath: { type: 'string', description: '本地仓库地址', required: true },
-  repoType: { type: 'string', description: '仓库类型（缺省自动探测）' },
-  buildCommandHint: { type: 'string', description: '参考编译命令' },
-  timeoutMs: { type: 'integer', description: '超时（默认 1800000）' },
 };
 
 /** repo_prepare 参数（FE-08 §5，2026-09-28 自 repo_push 瘦身改名） */
@@ -207,7 +200,6 @@ export const TOOL_PARAMETERS: Record<string, Record<string, unknown>> = {
   codeartsbuild_list_templates: listTemplatesParameters,
   codeartsbuild_wait_build: waitBuildParameters,
   codeartsbuild_get_log: getLogParameters,
-  codeartsbuild_repo_build: repoBuildParameters,
   codeartsbuild_repo_prepare: repoPrepareParameters,
   codeartsbuild_repo_push: repoPushParameters,
   codeartsbuild_get_push_credential: getPushCredentialParameters,

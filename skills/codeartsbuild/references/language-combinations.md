@@ -1,7 +1,8 @@
-# 语言 → 推荐步骤组合（create_job 组装参考）
+# 语言 → 推荐步骤组合（stepsPlan 设计参考）
 
-> 对应 `create_job` 的 `language` 速选参数：语言/场景标识展开为下表固定组合。
-> 也可以作为 `stepsPlan` 的设计参考（用下表的 template_id 作为 `step` 值）。
+> `create_job` 的 `language` 速选参数已于 2026-11-06 废弃（与 `stepsPlan` 功能重叠，统一用 `stepsPlan`）。
+> 本表保留作为 **`stepsPlan` 的设计参考**：用下表的 template_id 作为 `step` 值，组合为 `stepsPlan` 传入 `create_job`。
+> 例如 `Java/Maven（jar）` 组合 → `stepsPlan: [{step:"maven-build",properties:{command:"mvn clean package"}},{step:"upload-release",properties:{file:"target/*.jar"}}]`。
 
 ## 环境锚点原则
 

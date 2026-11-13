@@ -32,6 +32,9 @@ function makeInput(overrides?: Partial<CreateJobHandlerInput>): CreateJobHandler
     arch: 'x86-64',
     projectId: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
     steps: VALID_STEPS,
+    // FE-19：空 scms 软拦截——非 scms 场景测试默认走"用户已确认无代码源"路径（confirmEmptyScms=true）；
+    // 拦截行为由 FE-19 专项用例显式覆盖（confirmEmptyScms: false）
+    confirmEmptyScms: true,
     ...overrides,
   };
 }
@@ -275,19 +278,42 @@ describe('createJobHandler', () => {
     expect(result.content[0].text).toContain('禁止臆造');
   });
 
-  it('无 scms 时正常透传（不校验）', async () => {
+  it('无 scms + confirmEmptyScms=true 时正常透传（不校验，用户已确认无代码源）', async () => {
     const ctx = makeCtx({});
-    await createJobHandler(ctx, makeInput({ scms: undefined }));
+    await createJobHandler(ctx, makeInput({ scms: undefined, confirmEmptyScms: true }));
 
     expect(createCalled()).toBe(true);
     const req = getCreateCall();
     expect(req.body?.scms).toBeUndefined();
   });
 
-  it('FE-13: 无 scms 成功返回附 scms_empty_hint，含 repo_prepare→repo_push 操作路径引导', async () => {
+  it('FE-19: 无 scms + 无 confirmEmptyScms → need_confirmation 软拦截（created:false，不发创建请求），引导 repo_prepare→repo_push 正确顺序', async () => {
     const ctx = makeCtx({});
-    const result = await createJobHandler(ctx, makeInput({ scms: undefined, projectId: 'a1b2c3d4e5f60718293a4b5c6d7e8f90' }));
+    const result = await createJobHandler(
+      ctx,
+      makeInput({ scms: undefined, projectId: 'a1b2c3d4e5f60718293a4b5c6d7e8f90', confirmEmptyScms: false }),
+    );
 
+    expect(result.isError).toBe(false);
+    expect(createCalled()).toBe(false); // 软拦截不发创建请求（不产生"空 scms 先建"缺陷任务）
+    const data = result.data as { created?: boolean; reason?: string; next_actions?: string[]; scms_empty?: boolean };
+    expect(data.created).toBe(false);
+    expect(data.reason).toBe('need_confirmation');
+    expect(data.scms_empty).toBe(true);
+    const next = data.next_actions as string[];
+    expect(next.join(' ')).toContain('repo_prepare');
+    expect(next.join(' ')).toContain('repo_push');
+    expect(next.join(' ')).toContain('confirmEmptyScms=true');
+  });
+
+  it('FE-19: 无 scms + confirmEmptyScms=true（用户确认无代码源任务）→ 创建成功，返回附 scms_empty_hint 提示', async () => {
+    const ctx = makeCtx({});
+    const result = await createJobHandler(
+      ctx,
+      makeInput({ scms: undefined, projectId: 'a1b2c3d4e5f60718293a4b5c6d7e8f90', confirmEmptyScms: true }),
+    );
+
+    expect(createCalled()).toBe(true);
     expect(result.isError).toBe(false);
     const data = result.data as { scms_empty_hint?: string };
     expect(data.scms_empty_hint).toContain('任务无代码源');
@@ -470,7 +496,6 @@ describe('createJobHandler', () => {
       ctx,
       makeInput({
         steps: [{ module_id: 'devcloud2018.codeci_action_20014.action', name: 'Npm构建', properties: { image: 'nodejs20' } }],
-        imageSource: 'list_templates', // FE-16 §2.2：声明 image 来源
       }),
     );
 
@@ -479,7 +504,7 @@ describe('createJobHandler', () => {
 
   // ─── FE-15 §4 #10：任务名查重机制化 ───
 
-  it('FE-15: 查重命中同名任务 → E_PARAM 引导复用/改名/update_job，不创建', async () => {
+  it('FE-15: 查重命中同名任务 → E_PARAM 引导改名创建，不创建', async () => {
     mockCall.mockImplementation((req: { method: string; path: string }) => {
       if (req.method === 'GET' && req.path === '/v1/job/list') {
         return Promise.resolve({ result: { total: 1, job_list: [{ id: 'existing-job', job_name: 'test-job' }] } });
@@ -493,7 +518,7 @@ describe('createJobHandler', () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('E_PARAM');
     expect(result.content[0].text).toContain('已存在同名构建任务');
-    expect(result.content[0].text).toContain('update_job');
+    expect(result.content[0].text).toContain('改名创建');
     expect(createCalled()).toBe(false);
   });
 
@@ -512,87 +537,90 @@ describe('createJobHandler', () => {
     expect(createCalled()).toBe(true);
   });
 
-  // ─── FE-16 §2.2：image 字面量来源软引导（2026-11-03 会话 e3c9f738）───
+  // ─── FE-17 §2.1：模板选用 mismatch 检测（2026-11-05 会话 652fb005）───
+  // 会话证据：模型用 shell-command（镜像 shell4.2.46 不含 Python）跑 pip install + pytest → pip: command not found
+  // 用户决策：选用标准是核心构建工具（python→pyinstaller-build），shell-command 仅用于无语言运行时的纯 shell 任务
 
-  it('FE-16: steps 覆盖 image 但未传 imageSource → need_image_source 警告，不创建', async () => {
-    // 会话证据：模型传 image: "shell4.2.46-git1.8.3-zip6.00" 虽合法但未从 list_templates/get_job 验证
-    // FE-16 §2.2：未传 imageSource + image 被覆盖 → need_image_source 警告（不创建）
+  it('FE-17: projectRepoType=python + steps 含 shell-command → E_PARAM 引导用 pyinstaller-build', async () => {
     const ctx = makeCtx({});
     const result = await createJobHandler(
       ctx,
       makeInput({
-        steps: [{ module_id: 'devcloud2018.codeci_action_20014.action', name: 'Npm构建', properties: { image: 'nodejs20' } }],
-        // 未传 imageSource
+        projectRepoType: 'python',
+        steps: [{ module_id: 'devcloud2018.codeci_action_20017.action', name: '安装依赖', properties: { command: 'pip install -r requirements.txt && pytest' } }],
       }),
     );
-
-    expect(result.isError).toBe(false);
-    const data = result.data as Record<string, unknown>;
-    expect(data.created).toBe(false);
-    expect(data.need_image_source).toBe(true);
-    const actions = data.next_actions as string[];
-    expect(actions.some((a) => a.includes('list_templates'))).toBe(true);
-    expect(actions.some((a) => a.includes('manual'))).toBe(true);
-    // 不触发 HTTP create
+    // createJobHandler 把 E_PARAM 转成 isError 结果（不抛）
+    expect(result.isError).toBe(true);
+    const text = result.content[0].text;
+    expect(text).toContain('shell-command');
+    expect(text).toContain('mismatch');
+    // 引导用 pyinstaller-build（core_tool=python）
+    expect(text).toContain('pyinstaller-build');
+    expect(text).toContain('python');
     expect(createCalled()).toBe(false);
   });
 
-  it('FE-16: 传 imageSource: list_templates + image 覆盖 → 正常创建', async () => {
-    const ctx = makeCtx({});
+  it('FE-17: projectRepoType=python + steps 用 pyinstaller-build → 正常创建（模板匹配）', async () => {
     await createJobHandler(
-      ctx,
+      makeCtx({}),
       makeInput({
-        steps: [{ module_id: 'devcloud2018.codeci_action_20014.action', name: 'Npm构建', properties: { image: 'nodejs20' } }],
-        imageSource: 'list_templates',
+        projectRepoType: 'python',
+        steps: [{ module_id: 'devcloud2018.codeci_action_20015.action', name: 'Python测试', properties: { command: 'pip install -r requirements.txt && pytest' } }],
       }),
     );
-
     expect(createCalled()).toBe(true);
   });
 
-  it('FE-16: 传 imageSource: manual + image 覆盖 → 正常创建（降级路径）', async () => {
-    const ctx = makeCtx({});
+  it('FE-17: projectRepoType 缺省 + steps 含 shell-command → 正常创建（不拦，无语言已知）', async () => {
+    // 无 projectRepoType 时不做 mismatch 检测（兼容模型未跑 subagent 探索的场景）
     await createJobHandler(
-      ctx,
+      makeCtx({}),
       makeInput({
-        steps: [{ module_id: 'devcloud2018.codeci_action_20014.action', name: 'Npm构建', properties: { image: 'nodejs20' } }],
-        imageSource: 'manual',
+        steps: [{ module_id: 'devcloud2018.codeci_action_20017.action', name: '脚本任务', properties: { command: 'echo hello' } }],
       }),
     );
-
     expect(createCalled()).toBe(true);
   });
 
-  it('FE-16: 未传 imageSource + steps 无 image 覆盖（用默认值）→ 正常创建（不拦）', async () => {
-    // properties 无 image 字段 → 用模板默认值，不触发 imageSource 软引导
-    const ctx = makeCtx({});
+  it('FE-17: projectRepoType=other + steps 含 shell-command → 正常创建（other 不拦）', async () => {
+    // other 无对应核心工具模板 → 不拦（shell-command 是唯一选择）
     await createJobHandler(
-      ctx,
+      makeCtx({}),
       makeInput({
-        steps: [{ module_id: 'devcloud2018.codeci_action_20014.action', name: 'Npm构建', properties: { command: 'npm run build' } }],
-        // 未传 imageSource，但无 image 覆盖
+        projectRepoType: 'other',
+        steps: [{ module_id: 'devcloud2018.codeci_action_20017.action', name: '脚本任务', properties: { command: 'echo hello' } }],
       }),
     );
-
     expect(createCalled()).toBe(true);
   });
 
-  it('FE-16: 未传 imageSource + stepsPlan 覆盖 image → need_image_source 警告', async () => {
-    // stepsPlan 组装后 steps 含 image 覆盖 → 同样触发 imageSource 软引导
-    // 注意：makeInput 默认含 steps: VALID_STEPS，须显式置 undefined 走 stepsPlan 路径
+  it('FE-17: projectRepoType=npm + steps 含 shell-command → E_PARAM 引导用 npm-build', async () => {
     const ctx = makeCtx({});
     const result = await createJobHandler(
       ctx,
       makeInput({
-        steps: undefined,
-        stepsPlan: [{ step: 'npm-build', properties: { image: 'nodejs20' } }],
-        // 未传 imageSource
+        projectRepoType: 'npm',
+        steps: [{ module_id: 'devcloud2018.codeci_action_20017.action', name: 'Npm构建', properties: { command: 'npm install && npm run build' } }],
       }),
     );
-
-    expect(result.isError).toBe(false);
-    const data = result.data as Record<string, unknown>;
-    expect(data.need_image_source).toBe(true);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('npm-build');
     expect(createCalled()).toBe(false);
+  });
+
+  it('FE-17: steps 含 upload-release + projectRepoType=python → 正常（upload-release 非 shell-command）', async () => {
+    // upload-release 的 core_tool=none，不触发 mismatch
+    await createJobHandler(
+      makeCtx({}),
+      makeInput({
+        projectRepoType: 'python',
+        steps: [
+          { module_id: 'devcloud2018.codeci_action_20015.action', name: 'Python测试', properties: { command: 'pytest' } },
+          { module_id: 'devcloud2018.codeci_action_20018.action', name: '上传产物', properties: { file: 'dist/*' } },
+        ],
+      }),
+    );
+    expect(createCalled()).toBe(true);
   });
 });

@@ -13,6 +13,11 @@
     ".": "./lib/index.js",
     "./cordis.patch.yml": "./cordis.patch.yml"
   },
+  "files": [
+    "lib",
+    "skills",
+    "cordis.patch.yml"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",

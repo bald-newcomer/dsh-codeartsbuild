@@ -14,12 +14,13 @@ import type { Context } from '@deepseek-ai/cordis';
 import schema from '@deepseek-ai/schemastery';
 import { buildTools } from '../tools/index.js';
 import { configureTools } from '../tools/dsh-adapter.js';
+import { registerSkill } from './skill.js';
 
 /** 插件名（kebab-case） */
 export const name = 'codeartsbuild';
 
-/** 依赖服务：tools（工具注册表）就绪后才加载 */
-export const inject = ['tools'];
+/** 依赖服务：tools（工具注册表）+ skills（skill 注册表，宿主 dsh-base 已挂载）就绪后才加载 */
+export const inject = ['tools', 'skills'];
 
 /** 插件配置 schema（cordis.patch.yml config 段校验 + 默认值） */
 export interface Config {
@@ -38,13 +39,15 @@ export const Config = schema.object({
 });
 
 /**
- * 插件入口：注册 19 个 CodeArtsBuild 工具
+ * 插件入口：注册 18 个 CodeArtsBuild 工具
  * @param ctx cordis 上下文（注入 tools 服务）
  * @param config 插件配置（经 Config schema 校验 + 默认值填充）
  */
 export function apply(ctx: Context, config: Config) {
   // 注入配置到工具运行时（credentialSource/proxyUrl/region）
   configureTools({ ...config });
+  // 注册 SKILL.md 到 ctx.skills（宿主未挂载 skill 服务时静默跳过）
+  registerSkill(ctx);
   const tools = buildTools();
   for (const tool of tools) {
     ctx.tools.register(tool);

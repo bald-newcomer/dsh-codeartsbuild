@@ -33,10 +33,20 @@ export async function deleteJobHandler(ctx: CloudToolContext, input: DeleteJobHa
     }
 
     // ①.5 不可逆确认（FE-15 §4：模型层不得未经用户确认直接删除）
+    // FE-17 §2.5（2026-11-05 会话 652fb005）：构建失败时优先 update_job 修复而非 delete 重建
     if (!input.confirm) {
       return makeSuccessResult(
-        { job_id: input.jobId, deleted: false, reason: 'need_confirmation' },
-        `删除构建任务不可逆（jobId=${input.jobId}）——须用户显式确认后携带 confirm=true 重试；如确认删除，请向用户展示任务信息并征得同意`,
+        {
+          job_id: input.jobId,
+          deleted: false,
+          reason: 'need_confirmation',
+          next_actions: [
+            '删除不可逆——须用户显式确认后携带 confirm=true 重试',
+            '构建失败时优先 update_job 修复（先 get_job 取原配置，改 steps 后整体提交），而非 delete 重建——delete 会消耗配额且需重新组装（FE-17 §2.5，会话 652fb005：4 轮 delete 重建）',
+            '只有任务结构错误（如 jobName 错/scms 错/任务类型错）才 delete 重建',
+          ],
+        },
+        `删除构建任务不可逆（jobId=${input.jobId}）——须用户显式确认后携带 confirm=true 重试；构建失败优先 update_job 修复而非 delete 重建`,
       );
     }
 

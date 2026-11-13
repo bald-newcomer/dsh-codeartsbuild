@@ -38,7 +38,7 @@ docs/
 
 | 文档 | 状态 | 说明 |
 |------|------|------|
-| [FE-01-本地代码仓构建流程设计-20260919.md](design/FE-01-本地代码仓构建流程设计-20260919.md) | ✅ | 代码仓构建流程（单一 repo_build、异常升级、留档、module_id 全限定名） |
+| ~~[FE-01-本地代码仓构建流程设计-20260919.md](design/FE-01-本地代码仓构建流程设计-20260919.md)~~ | 📦 已废弃 | ~~代码仓构建流程（repo_build 四段式/留档/异常分类）~~——已被 FE-14 subagent 方案完全替代，文件已删除 |
 | [FE-02-日志清洗器规范-20260918.md](design/FE-02-日志清洗器规范-20260918.md) | ✅ | 日志清洗器（基于真实日志重设计、ZIP 解压规约） |
 | [FE-03-工具详细设计-20260918.md](design/FE-03-工具详细设计-20260918.md) | ✅ | 19 工具详细设计（create_job 详尽：stepsPlan 组装器 + openapi 对齐 + get_status 落定） |
 | [FE-04-Step模板库拆解-20260918.md](design/FE-04-Step模板库拆解-20260918.md) | ✅ | Step 模板库（推荐组合 + step 默认值 + 插件权威清单 + 模板引擎） |
@@ -54,6 +54,8 @@ docs/
 | [FE-14-本地构建子agent探索方案-20261026.md](design/FE-14-本地构建子agent探索方案-20261026.md) | ✅ | b98a0fdc 会话缺陷：本地构建改由 subagent 子 agent 自主探索（build info JSON 指导云端模板）；待宿主环境实测 |
 | [FE-15-凭据机制化与规约下沉设计-20261026.md](design/FE-15-凭据机制化与规约下沉设计-20261026.md) | ✅ | 63534983 会话 4 类问题：repo_push 凭据机制化（accessToken + 预检）/ 模板推荐 / 任务名查重 + delete 确认机制化 / SKILL 规约精简；2026-10-28 追加 get_push_credential |
 | [FE-16-推码分支预检与模板字段契约机制化-20261103.md](design/FE-16-推码分支预检与模板字段契约机制化-20261103.md) | ✅ | e3c9f738 会话 4 类问题：step 字段契约（拦 shellContent）/ image 来源软引导 / 推码分支预检 + PROTECTED_BRANCH / language 模糊匹配 |
+| [FE-17-模板选用规约与字段契约同步-20261105.md](design/FE-17-模板选用规约与字段契约同步-20261105.md) | ✅ | 652fb005 会话 4 类问题：模板选用 mismatch 机制化（python→pyinstaller-build）/ 移除 imageSource / module_id 白名单错误增强 / delete→update 优先引导 |
+| [FE-18-官方模板实调评估与step模板库更新-20261106.md](design/FE-18-官方模板实调评估与step模板库更新-20261106.md) | ✅ | ListOfficialTemplate 实调 33 个官方模板 + step-templates.json 更新（14→17，加 setuptools/msbuild/yarn）+ combination-scenarios 更新（15→18） |
 
 ### 测试设计层（test/）
 
@@ -69,7 +71,7 @@ docs/
 | 文档 | 状态 | 说明 |
 |------|------|------|
 | [api-contract.md](api/api-contract.md) | ✅ | 19 原子工具契约（唯一事实来源）、工作流编排、禁用 v3/v4 旧版接口（仅 v1）、状态枚举 |
-| [tools/](api/tools/) | ✅ | 各工具契约详情（19 个文件，按工具拆分） |
+| [tools/](api/tools/) | ✅ | 各工具契约详情（18 个文件，按工具拆分） |
 | [koocli-operation-reference.md](api/koocli-operation-reference.md) | ✅ | KooCLI 操作列表参考资料（HTTP 实现接口名 ↔ URL 对照，实测归档） |
 
 ### 运维/用户文档层（operations/）

@@ -30,6 +30,8 @@ export interface StepTemplate {
   name: string;
   module_id: string;
   properties: Record<string, unknown>;
+  /** 核心构建工具（FE-17 §2.1，2026-11-05）：标识模板镜像内置的语言/构建运行时；选用标准是核心工具而非 shell；空表示无构建运行时（产物上传/下载等） */
+  core_tool?: 'maven' | 'npm' | 'go' | 'python' | 'php' | 'cmake' | 'gradle' | 'android-gradle' | 'docker' | 'shell-only' | 'none';
 }
 
 /** Step 索引条目（来自 step-index.json，用于白名单） */
@@ -71,30 +73,6 @@ const TEMPLATE_ALLOWED_PROPERTY_KEYS: Map<string, Set<string>> = new Map(
     return [t.module_id, keys];
   }),
 );
-
-/**
- * 语言 → 推荐步骤组合（对齐 FE-04-Step模板库拆解-20260918.md §1）
- * key 为 language 值，value 为 template_id 数组（顺序即步骤顺序）
- */
-const LANGUAGE_COMBINATIONS: Record<string, string[]> = {
-  'Java/Maven（jar）': ['maven-build', 'upload-release'],
-  'Java/Maven（容器）': ['maven-build', 'build-image-swr'],
-  'Java/Gradle': ['gradle-build', 'upload-release'],
-  'Java/Android': ['android-build', 'upload-release'],
-  'JavaScript/npm': ['npm-build', 'upload-release'],
-  'JavaScript/npm（容器）': ['npm-build', 'build-image-swr'],
-  'Python/PyInstaller': ['pyinstaller-build', 'upload-release'],
-  'Python/其他（setuptools 等）': ['shell-command', 'upload-release'],
-  Go: ['go-build', 'upload-release'],
-  PHP: ['php-build', 'upload-release'],
-  'C/C++/CMake': ['cmake-build', 'upload-release'],
-  'C#/MSBuild': ['shell-command', 'upload-release'],
-  'Scala/sbt': ['shell-command', 'upload-release'],
-  '通用/自定义': ['shell-command'],
-  纯镜像: ['build-image-swr'],
-  '产物传 OBS': ['upload-obs'],
-  '从 OBS 拉取': ['download-obs'],
-};
 
 /**
  * 步骤名 → 最接近的 template_id 模糊推荐（FE-15 §3，2026-10-23 会话 63534983）
@@ -157,111 +135,23 @@ export function resolveStep(stepRef: string): StepTemplate {
   );
 }
 
-/** language 匹配方式（FE-16 §2.4 模糊匹配） */
-export type LanguageMatchKind = 'exact' | 'prefix' | 'contains' | 'none';
-
-/** language 匹配结果 */
-export interface LanguageMatchResult {
-  refs: string[];
-  matchedBy: LanguageMatchKind;
-  matchedLanguage: string; // 实际命中的 LANGUAGE_COMBINATIONS 键（exact 时 = 入参；模糊时 = 命中的键）
-}
-
 /**
- * 模糊推荐最相近的 language（FE-16 §2.4，2026-11-03 会话 e3c9f738）
- * 会话证据：模型传 `Python/uv`（不在枚举）→ 直接 E_PARAM 拒绝；模型只能传空 language 手拼 steps
- *
- * 匹配策略（按优先级）：
- * 1. 完全匹配：`Python/uv` === 枚举键
- * 2. 前缀匹配：`Python/uv` 前缀 `Python/` → 命中 `Python/其他（setuptools 等）`（同前缀下第一个）
- * 3. 包含匹配：入参包含枚举键（`uv Python` 包含 `Python`）→ 命中
- * 4. 无匹配：返回 null（调用方抛 E_PARAM 让用户选）
+ * validateSteps：module_id 白名单校验 + image 可用值校验 + 字段契约 + 模板选用规约（FE-11/16/17）
+ * @throws E_PARAM module_id 不在白名单 / image 不在该模板 image_select 可用枚举内 / properties 键名非法 / 模板选用 mismatch
  */
-function suggestClosestLanguage(language: string): { key: string; matchedBy: LanguageMatchKind } | null {
-  const keys = Object.keys(LANGUAGE_COMBINATIONS);
-  // ① 完全匹配
-  if (LANGUAGE_COMBINATIONS[language]) return { key: language, matchedBy: 'exact' };
-  // ② 前缀匹配：入参以 `X/` 开头，找同前缀的枚举键（如 `Python/uv` → `Python/其他（setuptools 等）`）
-  // 同前缀下优先选"通用"组合（含"其他/通用/custom"等词），避免误选特定打包工具（如 PyInstaller）
-  const slashIdx = language.indexOf('/');
-  if (slashIdx > 0) {
-    const prefix = language.slice(0, slashIdx + 1); // 如 `Python/`
-    const samePrefix = keys.filter((k) => k.startsWith(prefix));
-    if (samePrefix.length > 0) {
-      // 优先选含"其他/通用/custom/自定义"的键（通用 shell-command 组合）
-      const generic = samePrefix.find((k) => /其他|通用|custom|自定义/i.test(k));
-      const match = generic ?? samePrefix[0];
-      return { key: match, matchedBy: 'prefix' };
-    }
-  }
-  // ③ 包含匹配：入参包含某枚举键（如 `uv Python` 包含 `Python`）
-  const lower = language.toLowerCase();
-  for (const k of keys) {
-    if (lower.includes(k.toLowerCase())) return { key: k, matchedBy: 'contains' };
-  }
-  // ④ 枚举键包含入参（如入参 `Python` 命中 `Python/PyInstaller`）——取第一个包含的
-  for (const k of keys) {
-    if (k.toLowerCase().includes(lower)) return { key: k, matchedBy: 'contains' };
-  }
-  return null;
-}
-
-/**
- * selectTemplates：language → template_id 数组（FE-16 §2.4 模糊匹配）
- * 匹配优先级：完全 > 前缀 > 包含 > 无匹配（抛 E_PARAM + 推荐最相近）
- * @throws E_PARAM language 完全无匹配时
- */
-export function selectTemplates(language: string): string[] {
-  const match = suggestClosestLanguage(language);
-  if (!match) {
-    throw new ToolException(
-      'E_PARAM',
-      `language="${language}" 未匹配组合，且无相近语言`,
-      `可用 language: ${Object.keys(LANGUAGE_COMBINATIONS).join(', ')}——请从列表选择，或改用 stepsPlan 手动指定步骤`,
-    );
-  }
-  return LANGUAGE_COMBINATIONS[match.key];
-}
-
-/** selectTemplates 模糊匹配结果（含匹配方式，供调用方日志/审计） */
-export function selectTemplatesWithMatch(language: string): LanguageMatchResult {
-  const match = suggestClosestLanguage(language);
-  if (!match) {
-    throw new ToolException(
-      'E_PARAM',
-      `language="${language}" 未匹配组合，且无相近语言`,
-      `可用 language: ${Object.keys(LANGUAGE_COMBINATIONS).join(', ')}——请从列表选择，或改用 stepsPlan 手动指定步骤`,
-    );
-  }
-  return {
-    refs: LANGUAGE_COMBINATIONS[match.key],
-    matchedBy: match.matchedBy,
-    matchedLanguage: match.key,
-  };
-}
-
-/**
- * loadTemplate：按 template_id 加载模板
- */
-export function loadTemplate(templateId: string): StepTemplate {
-  const tpl = TEMPLATE_BY_ID.get(templateId);
-  if (!tpl) {
-    throw new ToolException('E_PARAM', `template_id="${templateId}" 未找到`, `可用: ${[...TEMPLATE_BY_ID.keys()].join(', ')}`);
-  }
-  return tpl;
-}
-
-/**
- * validateSteps：module_id 白名单校验 + image 可用值校验（FE-11 延伸，2026-10-10）
- * @throws E_PARAM module_id 不在白名单 / image 不在该模板 image_select 可用枚举内
- */
-export function validateSteps(steps: Step[]): void {
+export function validateSteps(steps: Step[], projectRepoType?: string): void {
   for (const [i, step] of steps.entries()) {
     if (!step.module_id || !WHITELIST_MODULE_IDS.has(step.module_id)) {
+      // FE-17 §2.3：错误信息增强——列完整白名单值（前 5 + 总数 + template_id 对照）
+      const allModuleIds = [...WHITELIST_MODULE_IDS];
+      const sample = allModuleIds.slice(0, 5).map((mid) => {
+        const tpl = TEMPLATE_BY_MODULE.get(mid);
+        return `${mid} (${tpl?.template_id ?? '?'})`;
+      }).join(', ');
       throw new ToolException(
         'E_PARAM',
-        `steps[${i}].module_id="${step.module_id}" 不在白名单`,
-        'module_id 必须取自 recommended_steps / list_templates / 实测白名单（见 step-index.json）',
+        `steps[${i}].module_id="${step.module_id}" 不在白名单（共 ${allModuleIds.length} 个）`,
+        `module_id 必须取自 step-index.json 白名单（格式 devcloud2018.codeci_action_<N>.action，非裸包名 com.hw.codearts...）。可用: ${sample}, ...——stepsPlan 用 template_id（如 maven-build），steps 数组用全限定 module_id（如 devcloud2018.codeci_action_20043.action）`,
       );
     }
     if (!step.name || !step.name.trim()) {
@@ -269,6 +159,55 @@ export function validateSteps(steps: Step[]): void {
     }
     validateStepImage(i, step);
     validateStepProperties(i, step);
+  }
+  // FE-17 §2.1：模板选用 mismatch 检测（项目语言已知时，shell-command 不该用于 python/maven 等语言构建）
+  if (projectRepoType) {
+    validateTemplateMismatch(steps, projectRepoType);
+  }
+}
+
+/**
+ * repo_type（subagent build_info）→ core_tool 映射（FE-17 §2.1，2026-11-05 会话 652fb005）
+ * 用于模板选用 mismatch 检测：项目语言已知时，shell-command（core_tool=shell-only）不该用于跑 pip/pytest/mvn 等
+ */
+const REPO_TYPE_TO_CORE_TOOL: Record<string, string> = {
+  python: 'python',
+  npm: 'npm',
+  maven: 'maven',
+  gradle: 'gradle',
+  go: 'go',
+  rust: 'cargo', // rust 无对应模板，shell-command 是唯一选择（mismatch 不拦）
+  c: 'cmake',
+  cpp: 'cmake',
+  other: 'shell-only', // other 不拦（无明确语言）
+};
+
+/**
+ * 模板选用 mismatch 检测（FE-17 §2.1，2026-11-05 会话 652fb005）
+ * 会话证据：模型用 shell-command（镜像 shell4.2.46 不含 Python）跑 pip install + pytest → pip: command not found
+ * 用户决策（2026-11-05）：选用标准是核心构建工具（python→pyinstaller-build），shell-command 仅用于无语言运行时的纯 shell 任务
+ *
+ * 检测规则：
+ * - 项目 repo_type 是 python/npm/maven/go 等（有对应 core_tool 模板）+ steps 含 shell-command → E_PARAM 引导
+ * - shell-command 的 image_select 只有 shell4.2.46-git1.8.3-zip6.00（不含语言运行时），不该跑 pip/npm/mvn
+ * - 不拦的场景：repo_type=other/rust（无对应模板）；stepsPlan 用 upload-release 等非 shell-command 模板
+ * @throws E_PARAM 项目语言有对应 core_tool 模板但用了 shell-command
+ */
+function validateTemplateMismatch(steps: Step[], projectRepoType: string): void {
+  const expectedCoreTool = REPO_TYPE_TO_CORE_TOOL[projectRepoType.toLowerCase()];
+  if (!expectedCoreTool || expectedCoreTool === 'shell-only') return; // 无对应模板或 other → 不拦
+  // 找 steps 中的 shell-command 步骤
+  for (const [i, step] of steps.entries()) {
+    const tpl = TEMPLATE_BY_MODULE.get(step.module_id);
+    if (!tpl || tpl.core_tool !== 'shell-only') continue; // 非 shell-command 模板 → 跳过
+    // 找对应 core_tool 的推荐模板（如 python → pyinstaller-build）
+    const recommended = TEMPLATES.find((t) => t.core_tool === expectedCoreTool);
+    if (!recommended) continue;
+    throw new ToolException(
+      'E_PARAM',
+      `steps[${i}] 用 shell-command（core_tool=shell-only，镜像 shell4.2.46 不含 ${expectedCoreTool} 运行时）跑 ${projectRepoType} 构建——模板选用 mismatch`,
+      `项目语言 ${projectRepoType} 应选 core_tool=${expectedCoreTool} 的模板（如 ${recommended.template_id}，镜像 ${recommended.properties.image}，覆盖 command 为实际构建命令即可）；shell-command 仅用于无语言运行时的纯 shell 任务（脚本调度/文件操作）。每个模板的默认 command 都可被 properties.command 覆盖（如 ${recommended.template_id} 默认 ${JSON.stringify(recommended.properties.command)}，覆盖为 'pip install -r requirements.txt && pytest' 即变 Python 测试任务）`,
+    );
   }
 }
 
@@ -412,14 +351,12 @@ function stripSelectFields(properties: Record<string, unknown> | undefined): Rec
 }
 
 /**
- * assembleSteps：stepsPlan/language → steps[]（数组顺序即构建步骤顺序）
+ * assembleSteps：stepsPlan → steps[]（数组顺序即构建步骤顺序）
  * @param input.stepsPlan 意图级步骤计划（推荐）
- * @param input.language 速选默认组合
  * @returns steps[]（含 module_id/name/properties/enable）
  */
 export function assembleSteps(input: {
   stepsPlan?: StepsPlanItem[];
-  language?: string;
 }): Step[] {
   // ① stepsPlan：意图级步骤计划（顺序 + 每步参数，properties 合并默认值）
   if (input.stepsPlan && input.stepsPlan.length > 0) {
@@ -435,24 +372,11 @@ export function assembleSteps(input: {
       return step;
     });
   }
-  // ② language：速选默认组合（顺序+参数由模板定义）
-  if (input.language) {
-    const refs = selectTemplates(input.language);
-    return refs.map((ref) => {
-      const tpl = loadTemplate(ref);
-      return {
-        module_id: tpl.module_id,
-        name: tpl.name,
-        properties: stripSelectFields({ ...tpl.properties }),
-        enable: true,
-      };
-    });
-  }
-  // 三者皆无
+  // stepsPlan 缺省
   throw new ToolException(
     'E_PARAM',
-    'steps/stepsPlan/language 三者皆无',
-    '请传 steps（原样透传）/ stepsPlan（意图级步骤计划，推荐）/ language（速选默认组合）之一',
+    'steps/stepsPlan 皆无',
+    '请传 steps（原样透传）/ stepsPlan（意图级步骤计划，推荐）之一',
   );
 }
 
@@ -461,12 +385,13 @@ export function assembleSteps(input: {
  * 对齐 FE-03-工具详细设计-20260918.md §3.4 伪代码
  */
 export function assembleConfig(input: CreateJobInput): CreateNewJobRequest {
+  // FE-17 §2.1：projectRepoType 透传给 validateSteps 做模板选用 mismatch 检测
   // steps 组装（显式 steps 最高优先；否则 stepsPlan/language）
   // 显式 steps 也需剥离 _select（FE-11：防模型从模板复制时带入 _select 字段进请求体）
   const steps: Step[] = input.steps
     ? input.steps.map((s) => ({ ...s, properties: stripSelectFields(s.properties as Record<string, unknown>) }))
-    : assembleSteps({ stepsPlan: input.stepsPlan, language: input.language });
-  validateSteps(steps);
+    : assembleSteps({ stepsPlan: input.stepsPlan });
+  validateSteps(steps, input.projectRepoType);
 
   return {
     arch: input.arch,
@@ -492,13 +417,6 @@ export function assembleConfig(input: CreateJobInput): CreateNewJobRequest {
  */
 export function listAvailableTemplates(): StepTemplate[] {
   return [...TEMPLATES];
-}
-
-/**
- * 获取可用 language 组合清单
- */
-export function listAvailableLanguages(): string[] {
-  return Object.keys(LANGUAGE_COMBINATIONS);
 }
 
 /**

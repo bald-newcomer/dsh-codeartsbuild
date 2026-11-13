@@ -9,10 +9,7 @@ import {
   resolveStep,
   suggestTemplateRefs,
   validateSteps,
-  selectTemplates,
-  selectTemplatesWithMatch,
   listAvailableTemplates,
-  listAvailableLanguages,
   listWhitelistModuleIds,
 } from '../src/providers/codeartsbuild/template-assembler.js';
 import { ToolException } from '../src/core/types.js';
@@ -31,37 +28,6 @@ function expectValidStep(step: ReturnType<typeof assembleSteps>[number]): void {
 }
 
 describe('Layer 1: 组装器单测', () => {
-  describe('TV-01 ~ TV-17: 语言→组合组装', () => {
-    const cases: Array<{ id: string; language: string; expectedSteps: number; expectedModuleIds: string[] }> = [
-      { id: 'TV-01', language: 'Java/Maven（jar）', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20043.action', 'devcloud2018.codeci_action_20018.action'] },
-      { id: 'TV-02', language: 'Java/Maven（容器）', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20043.action', 'devcloud2018.codeci_action_20004.action'] },
-      { id: 'TV-03', language: 'Java/Gradle', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20008.action', 'devcloud2018.codeci_action_20018.action'] },
-      { id: 'TV-04', language: 'Java/Android', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20032.action', 'devcloud2018.codeci_action_20018.action'] },
-      { id: 'TV-05', language: 'JavaScript/npm', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20014.action', 'devcloud2018.codeci_action_20018.action'] },
-      { id: 'TV-06', language: 'JavaScript/npm（容器）', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20014.action', 'devcloud2018.codeci_action_20004.action'] },
-      { id: 'TV-07', language: 'Python/PyInstaller', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20015.action', 'devcloud2018.codeci_action_20018.action'] },
-      { id: 'TV-08', language: 'Python/其他（setuptools 等）', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20017.action', 'devcloud2018.codeci_action_20018.action'] },
-      { id: 'TV-09', language: 'Go', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20026.action', 'devcloud2018.codeci_action_20018.action'] },
-      { id: 'TV-10', language: 'PHP', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20037.action', 'devcloud2018.codeci_action_20018.action'] },
-      { id: 'TV-11', language: 'C/C++/CMake', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20005.action', 'devcloud2018.codeci_action_20018.action'] },
-      { id: 'TV-12', language: 'C#/MSBuild', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20017.action', 'devcloud2018.codeci_action_20018.action'] },
-      { id: 'TV-13', language: 'Scala/sbt', expectedSteps: 2, expectedModuleIds: ['devcloud2018.codeci_action_20017.action', 'devcloud2018.codeci_action_20018.action'] },
-      { id: 'TV-14', language: '通用/自定义', expectedSteps: 1, expectedModuleIds: ['devcloud2018.codeci_action_20017.action'] },
-      { id: 'TV-15', language: '纯镜像', expectedSteps: 1, expectedModuleIds: ['devcloud2018.codeci_action_20004.action'] },
-      { id: 'TV-16', language: '产物传 OBS', expectedSteps: 1, expectedModuleIds: ['devcloud2018.codeci_action_20057.action'] },
-      { id: 'TV-17', language: '从 OBS 拉取', expectedSteps: 1, expectedModuleIds: ['devcloud2018.codeci_action_20063.action'] },
-    ];
-
-    for (const c of cases) {
-      it(`${c.id}: language="${c.language}" → ${c.expectedSteps} 步`, () => {
-        const steps = assembleSteps({ language: c.language });
-        expect(steps).toHaveLength(c.expectedSteps);
-        expect(steps.map((s) => s.module_id)).toEqual(c.expectedModuleIds);
-        steps.forEach(expectValidStep);
-      });
-    }
-  });
-
   describe('TV-E01: stepsPlan 自定义参数覆盖', () => {
     it('应覆盖默认 command/image', () => {
       const steps = assembleSteps({
@@ -91,19 +57,6 @@ describe('Layer 1: 组装器单测', () => {
       expect(steps[0].module_id).toBe('devcloud2018.codeci_action_20043.action');
       expect(steps[1].module_id).toBe('devcloud2018.codeci_action_20071.action');
       expect(steps[2].module_id).toBe('devcloud2018.codeci_action_20018.action');
-    });
-  });
-
-  describe('TV-E03: language 未匹配', () => {
-    it('应抛 E_PARAM 并列出可用 language', () => {
-      try {
-        assembleSteps({ language: 'Rust' });
-        expect.fail('应抛异常');
-      } catch (e) {
-        expect(e).toBeInstanceOf(ToolException);
-        expect((e as ToolException).code).toBe('E_PARAM');
-        expect((e as ToolException).details).toContain('可用 language');
-      }
     });
   });
 
@@ -162,7 +115,7 @@ describe('Layer 1: 组装器单测', () => {
     });
   });
 
-  describe('TV-E06: 三选一皆无', () => {
+  describe('TV-E06: steps/stepsPlan 皆无', () => {
     it('assembleSteps 应抛 E_PARAM', () => {
       try {
         assembleSteps({});
@@ -170,7 +123,7 @@ describe('Layer 1: 组装器单测', () => {
       } catch (e) {
         expect(e).toBeInstanceOf(ToolException);
         expect((e as ToolException).code).toBe('E_PARAM');
-        expect((e as ToolException).message).toContain('三者皆无');
+        expect((e as ToolException).message).toContain('steps/stepsPlan 皆无');
       }
     });
   });
@@ -200,20 +153,12 @@ describe('Layer 1: 组装器单测', () => {
   });
 
   describe('辅助函数', () => {
-    it('listAvailableTemplates 应返回 14 模板', () => {
-      expect(listAvailableTemplates()).toHaveLength(14);
+    it('listAvailableTemplates 应返回 17 模板', () => {
+      expect(listAvailableTemplates()).toHaveLength(17);
     });
 
-    it('listAvailableLanguages 应返回 17 组合', () => {
-      expect(listAvailableLanguages()).toHaveLength(17);
-    });
-
-    it('listWhitelistModuleIds 应返回 20 白名单', () => {
-      expect(listWhitelistModuleIds()).toHaveLength(20);
-    });
-
-    it('selectTemplates("Go") 应返回 ["go-build", "upload-release"]', () => {
-      expect(selectTemplates('Go')).toEqual(['go-build', 'upload-release']);
+    it('listWhitelistModuleIds 应返回 23 白名单', () => {
+      expect(listWhitelistModuleIds()).toHaveLength(23);
     });
   });
 
@@ -233,13 +178,6 @@ describe('Layer 1: 组装器单测', () => {
       // _select 字段剥离
       expect(props.image_select).toBeUndefined();
       expect(Object.keys(props).filter((k) => k.endsWith('_select'))).toHaveLength(0);
-    });
-
-    it('language 组装结果不含 _select 后缀字段', () => {
-      const steps = assembleSteps({ language: 'JavaScript/npm' });
-      const props = steps[0].properties as Record<string, unknown>;
-      expect(props.image).toBe('nodejs12.7.0');
-      expect(props.image_select).toBeUndefined();
     });
 
     it('stepsPlan 覆盖 image 为 image_select 内的值（业务值不被误剥离）', () => {
@@ -274,21 +212,6 @@ describe('Layer 1: 组装器单测', () => {
   });
 
   describe('assembleConfig 完整流程', () => {
-    it('language 速选 → 完整请求体', () => {
-      const cfg = assembleConfig({
-        projectId: 'p1',
-        jobName: 'job1',
-        arch: 'x86-64',
-        language: 'Java/Maven（jar）',
-      });
-      expect(cfg.steps).toHaveLength(2);
-      expect(cfg.steps[0].module_id).toBe('devcloud2018.codeci_action_20043.action');
-      expect(cfg.host_type).toBe('devcloud');
-      expect(cfg.build_config_type).toBe('ACTION');
-      expect(cfg.build_if_code_updated).toBe(false);
-      expect(cfg.auto_update_sub_module).toBe('false');
-    });
-
     it('缺省 arch/projectId 应抛 E_PARAM', () => {
       // assembleConfig 不校验 arch/projectId（由 schemastery + handler 校验）
       // 但 steps 缺失时应抛 E_PARAM
@@ -613,73 +536,6 @@ describe('Layer 1: 组装器单测', () => {
         expect(details).toContain('shellContent');
         expect(details).toContain('command');
       }
-    });
-  });
-
-  // ─── FE-16 §2.4：language 速选模糊匹配（2026-11-03 会话 e3c9f738）───
-  describe('FE-16: language 速选模糊匹配（selectTemplatesWithMatch）', () => {
-    it('完全匹配 Python/PyInstaller → matchedBy:exact', () => {
-      const r = selectTemplatesWithMatch('Python/PyInstaller');
-      expect(r.matchedBy).toBe('exact');
-      expect(r.matchedLanguage).toBe('Python/PyInstaller');
-      expect(r.refs).toEqual(['pyinstaller-build', 'upload-release']);
-    });
-
-    it('前缀匹配 Python/uv → 命中 Python/其他（setuptools 等），matchedBy:prefix', () => {
-      // 会话 e3c9f738 实测：模型传 Python/uv（不在枚举）→ 直接 E_PARAM 拒绝
-      // FE-16 §2.4：前缀匹配 Python/ → 命中同前缀下的 Python/其他（setuptools 等）
-      const r = selectTemplatesWithMatch('Python/uv');
-      expect(r.matchedBy).toBe('prefix');
-      expect(r.matchedLanguage).toBe('Python/其他（setuptools 等）');
-      expect(r.refs).toEqual(['shell-command', 'upload-release']);
-    });
-
-    it('前缀匹配 Java/uv → 命中 Java/Maven（jar）（同前缀第一个）', () => {
-      const r = selectTemplatesWithMatch('Java/uv');
-      expect(r.matchedBy).toBe('prefix');
-      expect(r.matchedLanguage).toBe('Java/Maven（jar）');
-    });
-
-    it('包含匹配：入参 Python（无 /，枚举键包含 Python）→ 命中含 Python 的第一个枚举键', () => {
-      // contains 第二策略：枚举键包含入参——Python/PyInstaller.includes('Python') → true
-      const r = selectTemplatesWithMatch('Python');
-      expect(r.matchedBy).toBe('contains');
-      expect(r.matchedLanguage).toContain('Python');
-    });
-
-    it('无前缀也无包含：Rust → matchedBy:none，抛 E_PARAM', () => {
-      try {
-        selectTemplatesWithMatch('Rust');
-        expect.fail('应抛 E_PARAM');
-      } catch (e) {
-        expect((e as ToolException).code).toBe('E_PARAM');
-        const details = (e as ToolException).details as string;
-        expect(details).toContain('可用 language');
-        expect(details).toContain('stepsPlan'); // 引导改用 stepsPlan
-      }
-    });
-
-    it('selectTemplates（旧 API）Python/uv → 返回 shell-command/upload-release（模糊匹配透传）', () => {
-      // selectTemplates 旧 API 仍可用，内部走模糊匹配
-      const refs = selectTemplates('Python/uv');
-      expect(refs).toEqual(['shell-command', 'upload-release']);
-    });
-
-    it('selectTemplates Rust → E_PARAM（无匹配）', () => {
-      try {
-        selectTemplates('Rust');
-        expect.fail('应抛 E_PARAM');
-      } catch (e) {
-        expect((e as ToolException).code).toBe('E_PARAM');
-      }
-    });
-
-    it('assembleSteps language=Python/uv → 模糊匹配展开为 shell-command + upload-release', () => {
-      // 端到端：assembleSteps 内部调 selectTemplates，模糊匹配后展开为 2 步
-      const steps = assembleSteps({ language: 'Python/uv' });
-      expect(steps.length).toBe(2);
-      expect(steps[0].module_id).toBe('devcloud2018.codeci_action_20017.action'); // shell-command
-      expect(steps[1].module_id).toBe('devcloud2018.codeci_action_20018.action'); // upload-release
     });
   });
 });

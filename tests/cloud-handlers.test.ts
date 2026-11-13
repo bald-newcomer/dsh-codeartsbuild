@@ -530,7 +530,7 @@ describe('listArtifactsHandler', () => {
 // ─── list_templates ───
 describe('listTemplatesHandler', () => {
 
-  it('成功：items→templates + template.steps 提取到顶层（ListCustomTemplate）', async () => {
+  it('成功：items→custom_templates + combination_scenarios 输出（ListCustomTemplate）', async () => {
     const client = makeClient(() => ({
       result: {
         total_size: 1,
@@ -546,10 +546,14 @@ describe('listTemplatesHandler', () => {
     }));
     const result = await listTemplatesHandler(makeCtx(client) as never, {});
 
-    const data = result.data as { templates: Array<{ name: string; steps: Array<{ module_id: string }> }>; total: number };
-    expect(data.total).toBe(1);
-    expect(data.templates[0].name).toBe('Maven 模板');
-    expect(data.templates[0].steps[0].module_id).toBe('devcloud2018.codeci_action_20043.action');
+    const data = result.data as { custom_templates: Array<{ name: string; steps: Array<{ module_id: string }> }>; combination_scenarios: unknown[]; summary: { custom_count: number; official_count: number } };
+    expect(data.summary.custom_count).toBe(1);
+    expect(data.custom_templates[0].name).toBe('Maven 模板');
+    expect(data.custom_templates[0].steps[0].module_id).toBe('devcloud2018.codeci_action_20043.action');
+    // 2026-11-06 精简：输出结构含 combination_scenarios（无 step_templates / new_official_templates）
+    expect(data.combination_scenarios.length).toBeGreaterThan(0);
+    expect(data).not.toHaveProperty('step_templates');
+    expect(data).not.toHaveProperty('new_official_templates');
     const [req] = client.call.mock.calls[0] as [{ path: string }];
     expect(req.path).toBe('/v1/template/custom');
   });

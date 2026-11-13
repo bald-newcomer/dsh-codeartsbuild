@@ -1,0 +1,20 @@
+[
+  { "scenario": "Java/Maven（jar）", "steps": ["maven-build", "upload-release"], "description": "标准 jar 交付" },
+  { "scenario": "Java/Maven（容器）", "steps": ["maven-build", "build-image-swr"], "description": "容器化交付" },
+  { "scenario": "Java/Gradle", "steps": ["gradle-build", "upload-release"], "description": "Gradle 构建 + 上传" },
+  { "scenario": "Java/Android", "steps": ["android-build", "upload-release"], "description": "APK 交付" },
+  { "scenario": "JavaScript/npm", "steps": ["npm-build", "upload-release"], "description": "前端/Node 交付；Yarn 场景亦用 npm；TS/JS/Node 一律归此（环境锚点，命令用 properties.command 覆盖）" },
+  { "scenario": "JavaScript/npm（容器）", "steps": ["npm-build", "build-image-swr"], "description": "npm 构建 + 镜像推送" },
+  { "scenario": "JavaScript/Yarn", "steps": ["yarn-build", "upload-release"], "description": "Yarn 构建 + 上传（环境锚点同 npm，命令用 properties.command 覆盖）" },
+  { "scenario": "Python/PyInstaller", "steps": ["pyinstaller-build", "upload-release"], "description": "可执行文件交付" },
+  { "scenario": "Python/Setuptools", "steps": ["setuptools-build", "upload-release"], "description": "Python egg/whl 打包交付（setup.py bdist_egg/bdist_wheel）" },
+  { "scenario": "Python/其他（setuptools 等）", "steps": ["pyinstaller-build", "upload-release"], "description": "Python 测试/打包（覆盖 command 为 pip install + pytest）" },
+  { "scenario": "Go", "steps": ["go-build", "upload-release"], "description": "二进制交付" },
+  { "scenario": "PHP", "steps": ["php-build", "upload-release"], "description": "PHP 构建 + 上传" },
+  { "scenario": "C/C++/CMake", "steps": ["cmake-build", "upload-release"], "description": "C/C++ 构建 + 上传" },
+  { "scenario": "C#/.NET/MSBuild", "steps": ["msbuild-build", "upload-release"], "description": "C#/.NET 构建 + 上传（msbuild /p:Configuration=Release）" },
+  { "scenario": "通用/自定义", "steps": ["shell-command"], "description": "任意脚本；覆盖 Ant/Bazel/Grunt/gulp/Grails/Gnu-arm/Kotlin/Flutter 等不维护构建" },
+  { "scenario": "纯镜像", "steps": ["build-image-swr"], "description": "制作镜像推 SWR（imageName/tag 自定义）" },
+  { "scenario": "产物传 OBS", "steps": ["upload-obs"], "description": "产物 → OBS 桶交付" },
+  { "scenario": "从 OBS 拉取", "steps": ["download-obs"], "description": "依赖/产物下载" }
+]

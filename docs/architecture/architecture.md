@@ -151,7 +151,7 @@ flowchart TB
     subgraph Infra["基础设施层"]
         KOO[KooCLI 适配器<br/>hcloud 命令构造/执行/解析<br/>含 Token 获取]
         LOG[日志清洗器<br/>详见 FE-02-日志清洗器规范-20260918.md]
-        REPO[代码仓分析器<br/>详见 FE-01-本地代码仓构建流程设计-20260919.md]
+        REPO[本地构建探索<br/>subagent 子 agent 自主探索<br/>详见 FE-14]
     end
 
     subgraph Cloud["Huawei Cloud"]
@@ -175,7 +175,7 @@ flowchart TB
 | **业务抽象优先** | 核心域定义构建生命周期场景接口，不绑定任何具体后端 |
 | **DeepSeek Harness 专注** | 以 **dsh 插件**（bundle）为唯一终端形态，高度结合 Harness 能力：`ctx.tools.register(defineTool(...))` 注册原生工具、cordis 依赖注入、skill 机制、会话能力；**本期不做 MCP 辅助形态** |
 | **Provider 可插拔** | CodeArtsBuild 是第一个 Provider，新增后端仅需实现 Provider 接口 |
-| **本地代码仓感知** | 分析本地工作区文件自动推断技术栈和构建配置（详见 `FE-01-本地代码仓构建流程设计-20260919.md`） |
+| **本地构建探索** | subagent 子 agent 自主探索跑通本地编译，返回 build info JSON（详见 `FE-14-本地构建子agent探索方案-20261026.md`） |
 | **日志清洗→LLM 分析** | 插件负责拉取日志并结构化建模，根因分析交给 LLM（详见 `FE-02-日志清洗器规范-20260918.md`） |
 | **华为云调用承载** | CodeArtsBuild OpenAPI 调用经**自建 HTTP 客户端**（基于接口契约自行构造请求 + AK/SK 签名）承载，凭据经**凭据注入抽象**注入（保留"插件不接触明文"承诺）；详见 §3.3 技术选型 |
 
@@ -226,13 +226,6 @@ dsh-codeartsbuild/                      # dsh 插件（bundle），唯一终端�
 │   │   │   ├── client.ts               # 业务客户端（基于 KooCLI 调用）
 │   │   │   ├── operation-map.ts        # 工具→KooCLI 操作映射（v1 白名单）
 │   │   │   └── template-assembler.ts   # create_job 模板化组装（stepsPlan/language → steps）
-│   │   ├── local-build/                # 本地构建 Provider（场景 B，待办 #9 上移评审结论）
-│   │   │   ├── index.ts                # 聚合导出 repo_build
-│   │   │   ├── probe.ts                # 内部：仓库类型探测（fs 检测配置文件）
-│   │   │   ├── guidance.ts             # 内部：按仓库类型生成编译指导
-│   │   │   ├── build.ts                # 2.16 repo_build（child_process 执行 + 异常分类）
-│   │   │   ├── artifact.ts             # 内部：产物收集（glob 扫描）
-│   │   │   └── archive.ts              # 内部：过程留档（写 build-records/）
 │   │   └── index.ts                    # Provider 注册表（工厂）
 │   ├── infra/                          # 基础设施层（跨 Provider 复用）
 │   │   ├── http-client.ts              # 自建 HTTP 客户端封装（AK/SK 签名 + 错误映射 + 重试）
@@ -248,8 +241,8 @@ dsh-codeartsbuild/                      # dsh 插件（bundle），唯一终端�
     ├── architecture/                    # 架构设计层
     │   └── architecture.md              # 本文件
     ├── design/                          # 特性设计层（FE-编号-{特性内容}-日期）
-    │   ├── FE-01-本地代码仓构建流程设计.md       # 代码仓构建流程（概要）
     │   ├── FE-02-日志清洗器规范.md               # 日志清洗器（详细）
+    │   ├── FE-14-本地构建子agent探索方案.md       # 本地构建探索（subagent）
     │   ├── FE-03-工具详细设计.md                 # 16 工具详细设计（create_job 详尽）
     │   ├── FE-04-Step模板库拆解.md               # Step 模板库（官方模板拆解，create_job 组装资产）
     │   ├── FE-05-华为云调用承载方案对比评审决策.md # 承载方案评审决策（独立迭代特性）
@@ -286,7 +279,7 @@ src 按**职责边界**分为 5 个包，拆分依据如下（供评审选择/�
 | `entry/` | 插件入口 | **dsh 装配边界**：`apply(ctx)` 是 dsh 加载的唯一入口，独立成包使入口最小化，避免入口依赖具体业务实现 |
 | `tools/` | 工具定义 | **契约边界**：工具名称/描述/schema 是面向 LLM 的契约，与实现解耦；schema 变更不影响 Provider，便于对照 `api-contract.md` 评审 |
 | `core/` | 核心业务域 | **抽象边界**：`BuildProvider` 接口与生命周期编排与具体后端无关，是"业务抽象优先"原则的落点 |
-| `providers/` | Provider 实现 | **扩展边界**：新增后端只需新增子包实现 `BuildProvider`；**云端 + 本地双 Provider**——`codeartsbuild/`（云侧 A/C/D/E/F/G）+ `local-build/`（本地构建 B，待办 #9 评审结论：repo_build 是场景 B 核心能力，非基础设施，上移至 providers 与云侧对等） |
+| `providers/` | Provider 实现 | **扩展边界**：新增后端只需新增子包实现 `BuildProvider`；`codeartsbuild/`（云侧 A/C/D/E/F/G）；本地构建探索由宿主 `subagent` 承载（FE-14，非插件 Provider） |
 | `infra/` | 基础设施 | **技术边界**：HTTP 承载、日志清洗等跨 Provider 复用基础设施，独立便于替换（如替换承载层实现） |
 
 **备选拆分依据**（如评审倾向其他维度，可替换上述方案）：
@@ -436,13 +429,14 @@ interface LogError {
 }
 ```
 
-### 4.6 代码仓构建（本地构建 Provider）
+### 4.6 本地构建探索（subagent 子 agent）
 
-**AI 自主构建流程**（v0.2 重构）：识别技术栈、选定构建命令、执行构建、收集产物、留档，均可由 AI 自主完成；工具提供能力与规约，不硬编码分析逻辑。
+**子 agent 自主探索方案**（FE-14，2026-10-26 重构）：主 agent 调宿主 `subagent` 工具 spawn 一次性子 agent，子 agent 自主探索跑通本地编译，返回 build info JSON 指导云端模板选择。
 
-- **职责**：输入仓库路径 → 输出构建状态/编译命令/产物/推荐步骤（recommended_steps，可直接作为 create_job.steps）
-- **实现**：`src/providers/local-build/`（probe.ts 类型探测 / guidance.ts 编译指导 / build.ts 执行 / artifact.ts 产物收集 / archive.ts 留档）——v0.7.4 起 local-build 上移至 providers/，与云侧 Provider 对等
-- **详细设计**（阶段边界、异常升级、留档规约）：见 `docs/design/FE-01-本地代码仓构建流程设计-20260919.md`
+- **职责**：输入仓库路径 → 子 agent 探测环境/试命令/迭代 → 输出 build info JSON（status/repo_type/build_tool/build_environment/build_command/build_artifacts/attempted_commands）
+- **承载**：宿主 `dsh-base` bundle 已提供 `subagent` 工具（`dsh-tool-subagent`），非本插件工具；主 agent 调用时须传 `run_in_background: false`（foreground 等待结果）
+- **回退**：无（原 `repo_build` 工具已于 2026-11-06 废弃，subagent 是唯一本地构建探索路径）
+- **详细设计**：见 `docs/design/FE-14-本地构建子agent探索方案-20261026.md`
 
 ### 4.7 日志清洗器
 
@@ -464,7 +458,7 @@ interface LogError {
 
 ## 5. 工具契约
 
-> 工具契约（19 个原子工具入参/出参/URL/错误码/状态枚举）是**唯一事实来源**，完整定义见 `docs/api/api-contract.md`（各工具详情见 `docs/api/tools/*.md`）。本架构不再冗余摘录。
+> 工具契约（18 个原子工具入参/出参/URL/错误码/状态枚举）是**唯一事实来源**，完整定义见 `docs/api/api-contract.md`（各工具详情见 `docs/api/tools/*.md`）。本架构不再冗余摘录。
 
 ---
 
@@ -481,7 +475,7 @@ sequenceDiagram
     participant API as CodeArtsBuild API
 
     U->>H: 帮我基于当前项目创建构建任务并执行（projectId 由用户提供）
-    H->>P: codeartsbuild_repo_build（本地构建，模型自决）
+    H->>P: subagent（本地构建探索，子 agent 自主探索跑通编译）
     P-->>H: {language:"Java", buildTool:"Maven", recommendedSteps:[...]}
     H->>P: codeartsbuild_create_job(projectId, "auto-maven-build", body)
     P->>C: POST /v1/job/create（AK/SK 签名）
@@ -539,7 +533,7 @@ sequenceDiagram
 flowchart TD
     A[G2 诊断: 得到根因与修复建议] --> B[模型实施修复]
     B --> C{修复后重跑?}
-    C -- 本地修复（改代码/依赖） --> D[repo_build 重跑]
+    C -- 本地修复（改代码/依赖） --> D[subagent 重跑本地构建探索]
     C -- 云端修复（改任务配置） --> E[update_job 更新配置 → run_job 重跑]
     D --> F{重跑结果?}
     E --> F
@@ -555,7 +549,7 @@ flowchart TD
 | 项 | 规约 |
 |----|------|
 | **上限** | 3 轮（每轮 = 1 次诊断 + 1 次修复 + 1 次重跑） |
-| **本地 vs 云端修复** | 代码/依赖问题 → `repo_build` 本地重跑；任务配置问题 → `update_job` + `run_job` 云端重跑 |
+| **本地 vs 云端修复** | 代码/依赖问题 → `subagent` 重跑本地构建探索；任务配置问题 → `update_job` + `run_job` 云端重跑 |
 | **再诊断** | 每轮重跑失败后重新 `get_log` 诊断（根因可能变化），不得沿用上轮结论 |
 | **升级条件** | 3 轮未果、或某轮根因超出 AI 能力（需账号/业务确认）→ 立即升级用户 |
 | **留档** | 每轮修复动作与结果写入构建留档（repo_archive 机制），升级时附完整尝试记录 |
@@ -694,7 +688,6 @@ dsh web
 |----|--------|------|
 | 单元 | `infra/http-client.ts` 签名头构造/错误映射/重试 | Vitest + mock fetch（或注入 dispatcher） |
 | 单元 | `infra/credential-provider.ts` 凭据源读取 | Vitest + mock env / `.dsh-codearts` 文件 |
-| 单元 | `infra/local-build/` artifact 产物收集、archive 留档 | fixture 目录 |
 | 单元 | `infra/log-cleaner.ts` 清洗分类/截断 | 日志样本 fixture |
 | 单元 | `tools/` schema 校验 | Vitest |
 | 集成 | `providers/codeartsbuild` → HTTP（mock fetch 录制回放） | fixture + replay |

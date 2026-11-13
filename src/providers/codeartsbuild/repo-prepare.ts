@@ -260,7 +260,7 @@ function buildCreatedBase(
     ssh_url: created.sshUrl,
     branch,
     remote_url: created.httpUrl,
-    push_guidance: `git remote add origin ${created.httpUrl} && git push -u origin ${branch}`,
+    push_guidance: `git remote add origin ${created.httpUrl}; git push -u origin ${branch}`,
   };
 }
 

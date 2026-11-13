@@ -10,14 +10,13 @@
  * ⑤ 自建 HTTP 调 POST /v1/job/create（AK/SK 签名，全契约字段直传）
  * ⑥ 成功 → {job_id, created: true}；失败 → 透传 E_API
  */
-import { HttpClient } from '../../infra/http-client.js';
-import { makeSuccessResult, makeErrorResult, mapToolError } from '../../infra/tool-result.js';
-import { resolveProjectId } from '../../core/session.js';
-import { ToolException, type ToolResult } from '../../core/types.js';
-import type { ScmInfo, ParameterGroup } from '../../core/types.js';
-import { assembleConfig, listAvailableTemplates, resolveStep } from './template-assembler.js';
-import { parseProjectUuidFromRemoteUrl } from './repo-prepare.js';
-import type { CloudToolContext } from './context.js';
+import {makeErrorResult, makeSuccessResult, mapToolError} from '../../infra/tool-result.js';
+import {resolveProjectId} from '../../core/session.js';
+import type {ParameterGroup, ScmInfo} from '../../core/types.js';
+import {ToolException, type ToolResult} from '../../core/types.js';
+import {assembleConfig, listAvailableTemplates, resolveStep} from './template-assembler.js';
+import {parseProjectUuidFromRemoteUrl} from './repo-prepare.js';
+import type {CloudToolContext} from './context.js';
 
 /** CreateNewJob HTTP 响应（契约 §2.4 输出示例） */
 interface CreateNewJobResponse {
@@ -32,7 +31,6 @@ export interface CreateJobHandlerInput {
   jobName: string;
   arch: 'x86-64' | 'arm';
   stepsPlan?: Array<{ step: string; properties?: Record<string, unknown> }>;
-  language?: string;
   steps?: Array<{
     module_id: string;
     name: string;
@@ -40,6 +38,8 @@ export interface CreateJobHandlerInput {
     enable?: boolean;
   }>;
   scms?: ScmInfo[];
+  /** 空 scms 创建确认（默认 false；scms 为空时工具返回 need_confirmation 软拦截，须用户确认后携带 true 重试才创建无代码源任务） */
+  confirmEmptyScms?: boolean;
   parameters?: ParameterGroup[];
   description?: string;
   flavor?: string;
@@ -50,14 +50,8 @@ export interface CreateJobHandlerInput {
   autoUpdateSubModule?: string;
   agencyUrn?: string;
   groupId?: string;
-  /**
-   * image 字面量来源标记（FE-16 §2.2 软引导，2026-11-03 会话 e3c9f738）
-   * - 'list_templates'/'get_job'：从工具返回值取（正常路径）
-   * - 'default'：用模板默认 image（省略 properties.image）
-   * - 'manual'：模型凭记忆传（降级路径）
-   * 未传 + steps 中存在 properties.image 覆盖 → image_source_unverified 警告（不阻断，附 next_actions 引导先 list_templates）
-   */
-  imageSource?: 'list_templates' | 'get_job' | 'default' | 'manual';
+  /** 项目语言类型（FE-17 §2.1，来自 subagent build_info 的 repo_type）：用于模板选用 mismatch 检测（python 项目不该用 shell-command 跑 pip） */
+  projectRepoType?: string;
 }
 
 /**
@@ -285,13 +279,13 @@ export async function createJobHandler(
     // ② projectId 会话注入
     const projectId = resolveProjectId(input.projectId, ctx.session, ctx.envProjectId);
 
-    // ②.2 任务名查重（FE-15 §4 #10：命中同名 → 引导复用/改名/update_job，不重复新建）
+    // ②.2 任务名查重（FE-15 §4 #10：命中同名 → 引导改名创建，不重复新建）
     const dupExists = await checkJobNameDuplicate(ctx, input.jobName);
     if (dupExists) {
       throw new ToolException(
         'E_PARAM',
         `项目下已存在同名构建任务 "${input.jobName}"（list_jobs 查重命中）`,
-        `请选择：① 用 update_job 修改已有任务（先 get_job 取原配置）；② 改名创建（加 -v2 等后缀）；③ 经用户确认后删除重建（delete_job 须 confirm=true）。禁止重复新建同名任务（服务端会返回 422 DEVCB.00031075）`,
+        `请改名创建（加 -v2 等后缀）。禁止重复新建同名任务（服务端会返回 422 DEVCB.00031075）`,
       );
     }
 
@@ -304,13 +298,33 @@ export async function createJobHandler(
     // ②.75 scms URL 项目一致性校验（2026-10-10：禁止跨项目）
     validateScmProjectConsistency(input.scms, projectId);
 
+    // ②.8 空 scms 软拦截（2026-11-12 会话 ed0ef1ff）：
+    // 模型连续两会话（58dccf5f/ed0ef1ff）绕过 scm 链路"空 scms 先建"任务——scms_empty_hint 软提示被忽略，
+    // 升级为 delete_job 同款 need_confirmation 软拦截：不创建 + 引导正确顺序（repo_prepare → repo_push → 带 scms 重试）。
+    // 确需无代码源任务（稍后 update_job 补 scms / 运行期 scm 覆盖 / 委托账号）→ 用户确认后携带 confirmEmptyScms=true 重试。
+    if (!input.scms?.length && !input.confirmEmptyScms) {
+      const hint = buildScmsEmptyHint(input);
+      return makeSuccessResult(
+        {
+          created: false,
+          reason: 'need_confirmation',
+          scms_empty: true,
+          next_actions: [
+            '若意图是"基于仓库构建"：正确顺序为先 codeartsbuild_repo_prepare（建仓取 remote_url/repo_id）→ codeartsbuild_repo_push（推代码）→ 再 create_job 带 scms（scm_type=codehub，repo_id 取自 repo_prepare 输出）重试',
+            '对已建任务可用 codeartsbuild_update_job 补 scms（scm_type=codehub，repo_id 来自 repo_prepare 输出）',
+            '确需创建无代码源任务（稍后补 scms / 运行期 scm 覆盖）→ 向用户确认后携带 confirmEmptyScms=true 重试',
+          ],
+        },
+        `创建构建任务需要代码源：scms 为空——任务无代码源，run_job 可能无仓库可构建。${hint}`,
+      );
+    }
+
     // ③ steps 组装 + ④ 白名单校验（assembleConfig 内部完成）
     const requestBody = assembleConfig({
       projectId,
       jobName: input.jobName,
       arch: input.arch,
       stepsPlan: input.stepsPlan,
-      language: input.language,
       steps: input.steps,
       scms: toRequestScms(input.scms),
       parameters: input.parameters,
@@ -323,37 +337,8 @@ export async function createJobHandler(
       autoUpdateSubModule: input.autoUpdateSubModule,
       agencyUrn: input.agencyUrn,
       groupId: input.groupId,
+      projectRepoType: input.projectRepoType,
     });
-
-    // ④.5 image 字面量来源软引导（FE-16 §2.2，2026-11-03 会话 e3c9f738）：
-    // steps 中存在 properties.image 覆盖（非默认值）且未传 imageSource → 返回 image_source_unverified 警告（不创建）
-    // 会话证据：模型传 image: "shell4.2.46-git1.8.3-zip6.00" 虽合法但未从 list_templates/get_job 验证——本次恰好命中，下次可能臆造
-    // 软引导：模型传 imageSource: 'manual' 显式降级即可继续（审计可追溯）
-    if (!input.imageSource) {
-      const hasImageOverride = (requestBody.steps ?? []).some(
-        (step) => {
-          const props = step.properties as Record<string, unknown> | undefined;
-          return props?.image !== undefined && props?.image !== null && props?.image !== '';
-        },
-      );
-      if (hasImageOverride) {
-        return makeSuccessResult(
-          {
-            created: false,
-            need_image_source: true,
-            job_name: input.jobName,
-            hint: 'steps 中存在 properties.image 覆盖但未传 imageSource——image 字面量须取自 list_templates/get_job 返回值（规约 #12：照抄 image_select 字面量，勿凭记忆臆造）',
-            next_actions: [
-              "携带 imageSource: 'list_templates'（已从 list_templates 取值）重试 create_job",
-              "或携带 imageSource: 'get_job'（已从 get_job 回读）重试 create_job",
-              "或携带 imageSource: 'default'（用模板默认 image，省略 properties.image）重试 create_job",
-              "或携带 imageSource: 'manual'（确认凭记忆传值，降级路径）重试 create_job",
-            ],
-          },
-          'create_job: 检测到 properties.image 覆盖但未传 imageSource——请声明 image 来源后重试',
-        );
-      }
-    }
 
     // ⑤ 自建 HTTP 调 POST /v1/job/create（契约 §2.4 URL）
     // 全契约字段直传（含 description/source_code/agency_urn——SDK 模型类曾静默丢弃这些字段）

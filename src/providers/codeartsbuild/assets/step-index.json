@@ -405,6 +405,11 @@
   }
  },
  {
+  "uuid": "20016",
+  "module_id": "devcloud2018.codeci_action_20016.action",
+  "name": "SetupTool构建"
+ },
+ {
   "module_id": "devcloud2018.codeci_action_20017.action",
   "uuid": "20017",
   "name": "执行shell命令",
@@ -511,6 +516,16 @@
    "remainOriginPath": "FLAT",
    "preCondition": "SUCCESS"
   }
+ },
+ {
+  "uuid": "20019",
+  "module_id": "devcloud2018.codeci_action_20019.action",
+  "name": "Yarn构建"
+ },
+ {
+  "uuid": "20020",
+  "module_id": "devcloud2018.codeci_action_20020.action",
+  "name": "Msbuild构建"
  },
  {
   "module_id": "devcloud2018.codeci_action_20022.action",

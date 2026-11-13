@@ -60,7 +60,7 @@ export interface RepoPushHandlerInput {
   accessToken?: string;
 }
 
-/** spawn 执行 git（shell，捕获 stdout/stderr 尾部，超时 SIGKILL）——仿 local-build/build.ts runBuild */
+/** spawn 执行 git（shell，捕获 stdout/stderr 尾部，超时 SIGKILL） */
 function runGit(
   args: string[],
   repoPath: string,
@@ -162,7 +162,7 @@ function buildNextActions(type: PushErrorType, remoteUrl: string, accessToken: s
       // 建议用宿主命令推送（系统代理自动处理 NTLM），命令中复用 token URL
       return accessToken
         ? [
-            `代理需 NTLM 认证，repo_push 的 http.proxy 在此环境不通——用宿主命令推送（系统代理自动处理 NTLM）：git remote set-url origin ${authedUrl} && git -c http.sslVerify=false push -u origin ${branch}`,
+            `代理需 NTLM 认证，repo_push 的 http.proxy 在此环境不通——用宿主命令推送（系统代理自动处理 NTLM）：git remote set-url origin ${authedUrl}; git -c http.sslVerify=false push -u origin ${branch}（PowerShell 5.1 不支持 &&，命令用 ; 分隔或逐条执行）`,
             `或直接用 git push 命令：git -c http.sslVerify=false -c http.extraHeader="" push ${authedUrl} ${branch}`,
           ]
         : [
@@ -186,14 +186,14 @@ function buildNextActions(type: PushErrorType, remoteUrl: string, accessToken: s
     case 'NETWORK':
       return [`确认内网代理可达后重试：git -c http.proxy=<代理> -c http.sslVerify=false push -u origin ${branch}`];
     case 'REJECTED_FETCH_FIRST':
-      return [`git fetch origin && git rebase origin/${branch}（无共同祖先时 README 冲突取本地：git checkout --ours README.md）`, `git push -u origin ${branch}`];
+      return [`git fetch origin; git rebase origin/${branch}（无共同祖先时 README 冲突取本地：git checkout --ours README.md；PowerShell 5.1 不支持 &&，命令用 ; 分隔或逐条执行）`, `git push -u origin ${branch}`];
     case 'RUNTIME_CRASH':
       return ['Git for Windows 环境崩溃（CreateFileMapping）——升级 git / 重装 Git for Windows 后重试，或转用户人工推送'];
     case 'UNKNOWN':
       // 有 token 时给出可直接复用的宿主命令（模型在 repo_push 失败后常转用 pwsh，此处让它能复用 token）
       return accessToken
         ? [
-            `repo_push 失败，可尝试用宿主命令推送（已配置 accessToken，无需自行拼 URL）：git remote set-url origin ${authedUrl} && git -c http.sslVerify=false push -u origin ${branch}`,
+            `repo_push 失败，可尝试用宿主命令推送（已配置 accessToken，无需自行拼 URL）：git remote set-url origin ${authedUrl}; git -c http.sslVerify=false push -u origin ${branch}（PowerShell 5.1 不支持 &&，命令用 ; 分隔或逐条执行）`,
             `或直接推送：git -c http.sslVerify=false push ${authedUrl} ${branch}`,
           ]
         : [`人工检查 git push 输出后重试（git push -u origin ${branch}）${tokenHint}`];
@@ -356,7 +356,10 @@ export async function repoPushHandler(input: RepoPushHandlerInput): Promise<Tool
           repo_name: repoName,
           reason: 'not_git_repo',
           error: { error_type: 'UNKNOWN', message: `本地目录 ${repoPath} 不是 git 仓库（缺少 .git）——repo_push 只能推已有 git 仓库`, process_hint: 'git rev-parse --git-dir 探测失败' },
-          next_actions: ['先在本地目录执行 git init && git add . && git commit -m "initial commit"，再重试 repo_push', '或先调用 codeartsbuild_repo_prepare（建仓+取 remote_url）后再推'],
+          next_actions: [
+            '本地目录尚未初始化 git——依次执行 git init; git config user.email "<邮箱>"; git config user.name "<用户名>"; git add .; git commit -m "initial commit"（PowerShell 5.1 不支持 &&，命令用 ; 分隔或逐条执行），再重试 repo_push',
+            '或先调用 codeartsbuild_repo_prepare（建仓+取 remote_url）后再推',
+          ],
         },
         'repo_push: 本地目录不是 git 仓库——请先 git init 并提交，再重试推送',
       );
@@ -421,7 +424,7 @@ export async function repoPushHandler(input: RepoPushHandlerInput): Promise<Tool
           remote_url_source: remoteUrlSource,
           error: { error_type: 'UNKNOWN', message: `本地 origin（${originUrl}）指向项目 ${originProjectUuid}，与目标 projectUuid（${input.projectUuid}）不一致` },
           next_actions: [
-            `确认目标仓库地址后执行：git remote set-url origin ${remoteUrl} && git push -u origin ${branch}`,
+            `确认目标仓库地址后执行：git remote set-url origin ${remoteUrl}; git push -u origin ${branch}（PowerShell 5.1 不支持 &&，命令用 ; 分隔或逐条执行）`,
             '如本意是切换到 origin 所属项目，请先刷新会话 projectId 并重新 repo_prepare',
           ],
         },

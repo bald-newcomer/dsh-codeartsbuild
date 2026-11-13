@@ -111,7 +111,6 @@ export interface CreateJobInput {
   jobName: string;
   arch: 'x86-64' | 'arm';
   stepsPlan?: StepsPlanItem[];
-  language?: string;
   steps?: Step[];
   scms?: ScmInfo[];
   parameters?: ParameterGroup[];
@@ -124,6 +123,8 @@ export interface CreateJobInput {
   autoUpdateSubModule?: string;
   agencyUrn?: string;
   groupId?: string;
+  /** 项目语言类型（FE-17 §2.1，来自 subagent build_info 的 repo_type）：用于模板选用 mismatch 检测（python 项目不该用 shell-command 跑 pip） */
+  projectRepoType?: string;
 }
 
 /** stepsPlan 项（意图级步骤计划） */

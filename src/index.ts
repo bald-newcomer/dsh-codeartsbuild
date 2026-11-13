@@ -9,9 +9,7 @@ export {
   assembleSteps,
   resolveStep,
   validateSteps,
-  selectTemplates,
   listAvailableTemplates,
-  listAvailableLanguages,
   listWhitelistModuleIds,
 } from './providers/codeartsbuild/template-assembler.js';
 export { HttpClient } from './infra/http-client.js';

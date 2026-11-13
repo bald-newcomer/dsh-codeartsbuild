@@ -2,6 +2,7 @@
  {
   "template_id": "maven-build",
   "name": "Maven构建",
+  "core_tool": "maven",
   "module_id": "devcloud2018.codeci_action_20043.action",
   "properties": {
    "image": "maven3.5.3-jdk8-open",
@@ -40,6 +41,7 @@
  {
   "template_id": "upload-release",
   "name": "上传软件包到软件发布库",
+  "core_tool": "none",
   "module_id": "devcloud2018.codeci_action_20018.action",
   "properties": {
    "image": "shell4.2.46-git1.8.3-zip6.00",
@@ -55,6 +57,7 @@
  {
   "template_id": "build-image-swr",
   "name": "制作镜像并推送到SWR仓库",
+  "core_tool": "docker",
   "module_id": "devcloud2018.codeci_action_20004.action",
   "properties": {
    "image": "docker18.03",
@@ -92,6 +95,7 @@
  {
   "template_id": "shell-command",
   "name": "执行shell命令",
+  "core_tool": "shell-only",
   "module_id": "devcloud2018.codeci_action_20017.action",
   "properties": {
    "image": "shell4.2.46-git1.8.3-zip6.00",
@@ -105,6 +109,7 @@
  {
   "template_id": "npm-build",
   "name": "Npm构建",
+  "core_tool": "npm",
   "module_id": "devcloud2018.codeci_action_20014.action",
   "properties": {
    "image": "nodejs12.7.0",
@@ -130,6 +135,7 @@
  {
   "template_id": "go-build",
   "name": "Go语言构建",
+  "core_tool": "go",
   "module_id": "devcloud2018.codeci_action_20026.action",
   "properties": {
    "image": "go-1.10.3",
@@ -157,6 +163,7 @@
  {
   "template_id": "pyinstaller-build",
   "name": "PyInstaller构建",
+  "core_tool": "python",
   "module_id": "devcloud2018.codeci_action_20015.action",
   "properties": {
    "image": "python3.6",
@@ -178,6 +185,7 @@
  {
   "template_id": "php-build",
   "name": "PHP构建",
+  "core_tool": "php",
   "module_id": "devcloud2018.codeci_action_20037.action",
   "properties": {
    "image": "php7.3.3",
@@ -196,6 +204,7 @@
  {
   "template_id": "cmake-build",
   "name": "CMake构建",
+  "core_tool": "cmake",
   "module_id": "devcloud2018.codeci_action_20005.action",
   "properties": {
    "image": "cmake3.10.1-gcc5.5.0",
@@ -220,6 +229,7 @@
  {
   "template_id": "gradle-build",
   "name": "Gradle",
+  "core_tool": "gradle",
   "module_id": "devcloud2018.codeci_action_20008.action",
   "properties": {
    "gradle": "gradle",
@@ -287,6 +297,7 @@
  {
   "template_id": "android-build",
   "name": "Android构建",
+  "core_tool": "android-gradle",
   "module_id": "devcloud2018.codeci_action_20032.action",
   "properties": {
    "gradle": "gradle",
@@ -365,6 +376,7 @@
  {
   "template_id": "upload-obs",
   "name": "上传文件到OBS",
+  "core_tool": "none",
   "module_id": "devcloud2018.codeci_action_20057.action",
   "properties": {
    "authorizationUser": "",
@@ -384,6 +396,7 @@
  {
   "template_id": "download-obs",
   "name": "从OBS下载文件",
+  "core_tool": "none",
   "module_id": "devcloud2018.codeci_action_20063.action",
   "properties": {
    "authorizationUser": "",
@@ -403,6 +416,7 @@
  {
   "template_id": "unit-report",
   "name": "单元测试报告",
+  "core_tool": "none",
   "module_id": "devcloud2018.codeci_action_20071.action",
   "properties": {
    "image": "shell4.2.46-git1.8.3-zip6.00",
@@ -420,6 +434,68 @@
    "coverageFormat_select": [
     "jacoco",
     "cobertura"
+   ]
+  }
+ },
+ {
+  "template_id": "setuptools-build",
+  "name": "SetupTool构建",
+  "core_tool": "python",
+  "module_id": "devcloud2018.codeci_action_20016.action",
+  "properties": {
+   "image": "python3.6",
+   "command": "python setup.py bdist_egg",
+   "preCondition": "SUCCESS",
+   "image_select": [
+    "python2.7",
+    "python3.5",
+    "python3.6",
+    "python3.7",
+    "python3.8",
+    "python3.9",
+    "python3.10",
+    "python3.11",
+    "python3.12"
+   ]
+  }
+ },
+ {
+  "template_id": "msbuild-build",
+  "name": "Msbuild构建",
+  "core_tool": "msbuild",
+  "module_id": "devcloud2018.codeci_action_20020.action",
+  "properties": {
+   "image": "msbuild15-qt5.11.2",
+   "command": "msbuild /p:Configuration=Release;Plateform=x64",
+   "preCondition": "SUCCESS",
+   "image_select": [
+    "msbuild15-qt5.11.2"
+   ]
+  }
+ },
+ {
+  "template_id": "yarn-build",
+  "name": "Yarn构建",
+  "core_tool": "npm",
+  "module_id": "devcloud2018.codeci_action_20019.action",
+  "properties": {
+   "image": "nodejs12.7.0",
+   "command": "yarn install && yarn build",
+   "preCondition": "SUCCESS",
+   "image_select": [
+    "nodejs8.11.2",
+    "nodejs10.1.0",
+    "nodejs10.15.3",
+    "nodejs12.7.0",
+    "nodejs13",
+    "nodejs14",
+    "nodejs15",
+    "nodejs16",
+    "nodejs18",
+    "nodejs20",
+    "nodejs21",
+    "nodejs22",
+    "nodejs24"
    ]
   }
  }

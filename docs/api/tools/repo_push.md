@@ -97,4 +97,4 @@
 | projectUuid 非法 / repoPath 缺失 | E_PARAM |
 | git 命令超时 | E_TIMEOUT |
 
-**SKILL 编排**：意图 1 路由 `repo_prepare → repo_push → repo_build → create_job`；失败分类决策树见 `skills/codeartsbuild/references/git-push.md`。失败后转宿主命令（pwsh/bash）推送前，先调 `get_push_credential`（§2.19）取 `authed_url` + `commands`，禁止自行拼 URL。
+**SKILL 编排**：意图 1 路由 `repo_prepare → repo_push → subagent(本地构建探索) → create_job`；失败分类决策树见 `skills/codeartsbuild/references/git-push.md`。失败后转宿主命令（pwsh/bash）推送前，先调 `get_push_credential`（§2.18）取 `authed_url` + `commands`，禁止自行拼 URL。

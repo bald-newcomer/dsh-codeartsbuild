@@ -62,7 +62,7 @@ export async function getPushCredentialHandler(input: GetPushCredentialHandlerIn
         username: 'private-token',
         // 可执行命令示例（AI 复制即可用）
         commands: {
-          set_url_and_push: `git remote set-url origin ${authedUrl} && git -c http.sslVerify=false push -u origin master`,
+          set_url_and_push: `git remote set-url origin ${authedUrl}; git -c http.sslVerify=false push -u origin master`,
           direct_push: `git -c http.sslVerify=false push ${authedUrl} master`,
         },
         hint: '已配置 accessToken——以上命令可直接用于 pwsh/bash，无需自行拼 URL。token 来源：显式入参 > env CAB_CODEARTSREPO_TOKEN > .dsh-codearts 文件',

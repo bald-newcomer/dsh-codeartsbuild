@@ -2,9 +2,10 @@
 # 安装时合并到 dsh profile 的 cordis.yml；本文件由 dsh 宿主在加载 bundle 时解析。
 # 在 profile 中插入 codeartsbuild 插件实例（含默认配置）。
 #
-# inject: [tools] —— 声明依赖 dsh 宿主提供的 tools 服务（工具注册器）。
+# inject: [tools, skills] —— 声明依赖 dsh 宿主提供的 tools 服务（工具注册器）+ skills 服务（skill 注册器）。
 # 2026-09-21 安装验证：cordis 沙箱要求 entry 显式声明所需服务（fiber.entry.options.inject
 # → Inject.resolve → fiber.inject），否则 apply 中 ctx.tools 报 "cannot get property tools without inject"。
+# 2026-11-04 追加 skills：SKILL.md 经 ctx.skills.register() 注册（宿主 dsh-base 已挂载 skill/skill-filesystem）。
 #
 # FE-14 本地构建子 agent：宿主 dsh-base bundle 已挂载 dsh-tool-subagent（提供 `subagent` 工具），
 # 本 patch 不重复挂载（重复挂载会报 DUPLICATE_PROVIDER）。subagent 调用方式见
@@ -12,7 +13,7 @@
 - insert:
     - id: codeartsbuild
       name: '@dsh-codearts/codeartsbuild'
-      inject: ['tools']
+      inject: ['tools', 'skills']
       config:
         region: cn-north-4
         # projectId 不在此固定——会话级动态注入（见 SKILL.md 强制规约 #1）

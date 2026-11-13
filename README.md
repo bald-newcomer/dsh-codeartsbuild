@@ -1,6 +1,6 @@
 # 🏗️ CodeArtsBuild — 一切皆插件的构建生命周期管理（dsh 插件）
 
-> **AI-native & dsh-native 的华为云 CodeArts Build 构建工具包** — 19 个原子工具 · 6 大场景
+> **AI-native & dsh-native 的华为云 CodeArts Build 构建工具包** — 18 个原子工具 · 6 大场景
 > （本地构建 / 项目感知 / 任务编排 / 执行控制 / 状态监控 / 产物与日志）· 一条完整的
 > `本地验证 → 云端构建 → 失败诊断` 闭环。**契约即实现，实测即事实。**
 
@@ -14,7 +14,7 @@ dsh 的哲学是 **一切皆插件**；本插件把这一哲学带到华为云�
 以 **dsh 插件（bundle）** 为唯一终端形态，把构建生命周期拆成 6 大可组合场景：
 
 ```
-本地构建   repo_build       探测 → 编译指导 → 执行 → 产物 → 留档（模型自决编译过程）
+本地构建   subagent         子 agent 自主探索跑通本地编译（FE-14，返回 build info JSON）
 项目感知   list_projects    list_jobs      get_job
 任务编排   create_job       update_job     delete_job     list_templates
 执行控制   run_job          stop_job
@@ -36,8 +36,8 @@ dsh 的哲学是 **一切皆插件**；本插件把这一哲学带到华为云�
   数据来源映射写死在 SKILL 中，杜绝参数来源错误
 - **模板化组装**：`create_job` 传意图级 `stepsPlan`（步骤顺序 + 每步参数），
   组装器补全 module_id / 默认值，模型无需手工拼全限定名
-- **模型自决编译**：`repo_build` 单工具封装探测 / 指导 / 执行 / 产物 / 留档，
-  编译命令与异常修复由模型判断，工具只返回结构化结果
+- **本地构建探索**：subagent 子 agent 自主探索跑通本地编译（FE-14），
+  返回 build info JSON 指导云端模板选择（image/steps）
 - **自建 HTTP 承载**：`fetch` + `AKSKSigner` AK/SK 签名，请求 / 响应完全透明，
   契约即实现，不依赖 KooCLI / SDK 黑盒
 
@@ -104,7 +104,7 @@ export CAB_CODEARTSREPO_TOKEN=<TOKEN>
 
 ```
 "基于当前项目构建并交付"
-→ repo_build（本地探测+编译+产物）→ create_job（模板化组装）
+→ subagent（本地构建探索，返回 build info JSON）→ create_job（模板化组装）
 → run_job → wait_build（轮询至终态）→ list_artifacts（产物清单 + 控制台链接）
 ```
 
@@ -117,11 +117,10 @@ wait_build(FAILED) → get_record（取 record_id）→ get_log（拉取+ZIP 解
 
 指定分支构建 / 查询历史 / 停止构建等日常操作，均一句话触发（见 SKILL 建议操作路径）。
 
-## 🛠️ 工具清单（19 个）
+## 🛠️ 工具清单（18 个）
 
 | 场景 | 工具 | 说明 |
 |------|------|------|
-| **本地构建** | `codeartsbuild_repo_build` | 本地构建（探测/指导/执行/产物/留档内置，模型自决） |
 | | `codeartsbuild_repo_prepare` | 本地仓库准备 CodeArtsRepo（建仓+回读 RepoInfo） |
 | | `codeartsbuild_repo_push` | 推送本地仓库代码到 CodeArtsRepo（一次智能尝试+失败分类+private-token 凭据注入） |
 | | `codeartsbuild_get_push_credential` | 获取推送凭据（authedUrl + 可执行命令），repo_push 失败转宿主命令时调用 |

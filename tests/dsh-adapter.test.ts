@@ -67,14 +67,14 @@ describe('toDshTool 适配层', () => {
   });
 
   // ─── 注册形态回归：repo_push / get_push_credential 必须为 local（无 ctx），否则 execute 会把 ctx 当 input 传入 ───
-  it('buildTools：codeartsbuild_repo_push 已注册且总数 19（注册级健全性）', () => {
+  // 工具构成（18）= 16 云工具（含 repo_prepare）+ 2 个 local（repo_push + get_push_credential）
+  // repo_build 已于 2026-11-06 废弃删除（FE-14 废弃决策执行，工具数 19→18）
+  it('buildTools：codeartsbuild_repo_push 已注册且总数 18（注册级健全性）', () => {
     const tools = buildTools();
     const names = tools.map((t) => t.name);
     expect(names).toContain('codeartsbuild_repo_push');
     expect(names).toContain('codeartsbuild_repo_prepare');
-    // 工具构成（19）：16 云工具（含 repo_prepare）+ 3 个 local 工具
-    //   = repo_push(local) + get_push_credential(local，FE-15 §2.1 新增) + repo_build(local)
-    expect(tools.length).toBe(19);
+    expect(tools.length).toBe(18);
     // 参数 schema 含 repoPath/projectUuid（注册级——defineTool 会把 parameters 转为 JSON Schema）
     const push = tools.find((t) => t.name === 'codeartsbuild_repo_push') as unknown as {
       parameters?: { properties?: Record<string, unknown> } | Record<string, unknown>;
